@@ -242,7 +242,7 @@ class Detector(object):
             format_str = format_str.replace(numeration[-1], "%0{}d".format(len_num))
             self.vdo.open(os.path.join(self.args.VIDEO_PATH, format_str))
         else:
-            raise ValueError("%s is neither a valid video file nor a folder with valid images.")
+            raise ValueError("{} is neither a valid video file nor a folder with valid images.".format(self.args.VIDEO_PATH))
 
     def open_text_files(self, analyzed_points_dict):
         self.outputs_dict = {}
