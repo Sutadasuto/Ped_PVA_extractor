@@ -65,7 +65,6 @@ class Detector(object):
 
     def detect(self):
 
-        print("SI ENTRO AQUI")        
         # Mass centers
         mc = [np.array([], dtype=np.float).reshape(2, 0, 3) for i in range(2)]  # [[[x_t-1,y_t-1,frame_num_t-1]],
         # [[x_t,y_t,frame_num_t]]]. One array for store positions, one for velocities
