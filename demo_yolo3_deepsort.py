@@ -33,6 +33,8 @@ class Detector(object):
 
     def __enter__(self):
         self.open_stream()
+        print("ESTOS SON LOS FPS:")
+        print(self.source_fps)
         self.im_width = int(self.vdo.get(cv2.CAP_PROP_FRAME_WIDTH))
         self.im_height = int(self.vdo.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
