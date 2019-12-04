@@ -32,10 +32,7 @@ class Detector(object):
             self.output_dir = args.output_dir
 
     def __enter__(self):
-        print("SI ENTRO AQUI")
         self.open_stream()
-        print("ESTOS SON LOS FPS:")
-        print(self.source_fps)
         self.im_width = int(self.vdo.get(cv2.CAP_PROP_FRAME_WIDTH))
         self.im_height = int(self.vdo.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
@@ -68,6 +65,7 @@ class Detector(object):
 
     def detect(self):
 
+        print("SI ENTRO AQUI")        
         # Mass centers
         mc = [np.array([], dtype=np.float).reshape(2, 0, 3) for i in range(2)]  # [[[x_t-1,y_t-1,frame_num_t-1]],
         # [[x_t,y_t,frame_num_t]]]. One array for store positions, one for velocities
