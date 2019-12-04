@@ -30,6 +30,7 @@ class Detector(object):
             self.output_dir = os.path.join(os.getcwd(), "outputs")
         else:
             self.output_dir = args.output_dir
+        print("SI ENTRO AQUI")
 
     def __enter__(self):
         self.open_stream()

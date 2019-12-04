@@ -1,3 +1,6 @@
 /__pycache__/
 /YOLOv3/yolov3.weights
 /deep_sort/deep/checkpoint/ckpt.t7
+/deep_sort/__pycache__/
+/deep_sort/deep/__pycache__/
+/deep_sort/sort/__pycache__/
