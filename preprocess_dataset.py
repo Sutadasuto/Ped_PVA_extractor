@@ -32,8 +32,7 @@ def parse_args():
     return parser.parse_args()
 
 
-if __name__ == "__main__":
-    args = parse_args()
+def main(args):
     if not os.path.isdir(args.DATABASE_FOLDER):
         raise NotADirectoryError
     videos = sorted([os.path.join(args.DATABASE_FOLDER, f) for f in os.listdir(args.DATABASE_FOLDER) if
@@ -62,3 +61,7 @@ if __name__ == "__main__":
             det.detect()
 
     text_to_npy(output_root_dir)
+
+
+if __name__ == "__main__":
+    args = parse_args()
