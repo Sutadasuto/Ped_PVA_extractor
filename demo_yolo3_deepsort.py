@@ -282,7 +282,11 @@ def parse_args():
     return parser.parse_args()
 
 
-if __name__ == "__main__":
-    args = parse_args()
+def main(args):
     with Detector(args) as det:
         det.detect()
+
+
+if __name__ == "__main__":
+    args = parse_args()
+    main(args)
