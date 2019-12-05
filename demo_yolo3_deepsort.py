@@ -262,7 +262,7 @@ class Detector(object):
                 file.write("# %s\n" % help_str.replace('*ph*', variables[variable]))
 
 
-def parse_args():
+def parse_args(args=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("VIDEO_PATH", type=str)
     parser.add_argument("--output_dir", type=str, default=None)
@@ -279,7 +279,7 @@ def parse_args():
     parser.add_argument("--display_height", type=int, default=600)
     parser.add_argument("--save_path", type=str, default="demo.avi")
     parser.add_argument("--use_cuda", type=str, default="True")
-    return parser.parse_args()
+    return parser.parse_args(args)
 
 
 def main(args):

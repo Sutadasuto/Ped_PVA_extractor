@@ -6,7 +6,7 @@ from util import text_to_npy
 from demo_yolo3_deepsort import Detector
 
 
-def parse_args():
+def parse_args(args=None):
     parser = argparse.ArgumentParser()
     # User intended
     parser.add_argument("DATABASE_FOLDER", type=str)
@@ -29,7 +29,7 @@ def parse_args():
     parser.add_argument("--display_height", type=int, default=600)
     parser.add_argument("--save_path", type=str, default="bboxes.avi")
 
-    return parser.parse_args()
+    return parser.parse_args(args)
 
 
 def main(args):
