@@ -46,14 +46,14 @@ def main(args):
     if not os.path.exists(output_root_dir):
         os.makedirs(output_root_dir)
 
-    if bool(args.save_videos):
+    if bool(strtobool(args.save_videos)):
         video_name = args.save_path
 
     for video in videos:
         print("\n\n***\nCURRENT VIDEO: %s\n" % video)
         args.VIDEO_PATH = video
         args.output_dir = os.path.join(output_root_dir, os.path.split(video)[-1])
-        if bool(args.save_videos):
+        if bool(strtobool(args.save_videos)):
             args.save_path = os.path.join(args.output_dir, video_name)
         else:
             args.save_path = None

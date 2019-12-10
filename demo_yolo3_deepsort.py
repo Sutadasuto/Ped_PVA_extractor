@@ -15,7 +15,7 @@ class Detector(object):
     def __init__(self, args):
         self.args = args
         use_cuda = bool(strtobool(self.args.use_cuda))
-        if not args.ignore_display:
+        if not bool(strtobool(args.ignore_display)):
             cv2.namedWindow("test", cv2.WINDOW_NORMAL)
             cv2.resizeWindow("test", args.display_width, args.display_height)
         self.display_width = args.display_width
@@ -144,7 +144,7 @@ class Detector(object):
             end = time.time()
             print("time: {:.3f}s, fps: {:.1f}, frame_number: {}".format(end - start, 1 / (end - start), real_frame))
 
-            if not self.args.ignore_display:
+            if not bool(strtobool(self.args.ignore_display)):
                 cv2.imshow("test", ori_im)
                 cv2.waitKey(1)
 
@@ -274,7 +274,7 @@ def parse_args(args=None):
     parser.add_argument("--nms_thresh", type=float, default=0.4)
     parser.add_argument("--deepsort_checkpoint", type=str, default="deep_sort/deep/checkpoint/ckpt.t7")
     parser.add_argument("--max_dist", type=float, default=0.2)
-    parser.add_argument("--ignore_display", type=bool, default=False)
+    parser.add_argument("--ignore_display", type=str, default="False")
     parser.add_argument("--display_width", type=int, default=800)
     parser.add_argument("--display_height", type=int, default=600)
     parser.add_argument("--save_path", type=str, default="demo.avi")
