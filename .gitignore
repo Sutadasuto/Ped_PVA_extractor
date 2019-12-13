@@ -1,10 +1,6 @@
-/__pycache__/
+__pycache*
 /YOLOv3/yolov3.weights
-/YOLOv3/__pycache__
 /deep_sort/deep/checkpoint/ckpt.t7
-/deep_sort/__pycache__/
-/deep_sort/deep/__pycache__/
-/deep_sort/sort/__pycache__/
 /outputs/
-/demo.avi
+/*.avi
 /.idea/
