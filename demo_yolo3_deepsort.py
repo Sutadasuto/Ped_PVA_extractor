@@ -38,7 +38,7 @@ class Detector(object):
 
         if self.args.frame_rate > 0:
             if self.args.frame_rate <= self.source_fps:
-                self.sampling_delay = int(self.source_fps / self.args.frame_rate)  # frames
+                self.sampling_delay = int(round(self.source_fps / self.args.frame_rate))  # frames
             else:
                 raise ValueError("Frame rate can't be greater than source: %sfps" % self.source_fps)
             self.frame_period = 1.0 / self.args.frame_rate  # seconds
@@ -146,10 +146,12 @@ class Detector(object):
 
             if not bool(strtobool(self.args.ignore_display)):
                 cv2.imshow("test", ori_im)
-                cv2.waitKey(1)
+                # cv2.waitKey(1)
 
             if self.args.save_path is not None:
                 self.output.write(ori_im)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
         self.close_text_files()
 
     def add_subjects(self, frame_identities, array_to_complete):
@@ -242,7 +244,12 @@ class Detector(object):
             format_str = format_str.replace(numeration[-1], "%0{}d".format(len_num))
             self.vdo.open(os.path.join(self.args.VIDEO_PATH, format_str))
         else:
-            raise ValueError("{} is neither a valid video file nor a folder with valid images.".format(self.args.VIDEO_PATH))
+            try:
+                device_id = int(self.args.VIDEO_PATH)
+                self.vdo.open(device_id)
+                self.source_fps = self.vdo.get(cv2.CAP_PROP_FPS)
+            except ValueError:
+                raise ValueError("{} is neither a valid video file, a folder with valid images or a proper device id.".format(self.args.VIDEO_PATH))
 
     def open_text_files(self, analyzed_points_dict):
         self.outputs_dict = {}
