@@ -8,7 +8,7 @@ from distutils.util import strtobool
 
 from YOLOv3 import YOLOv3
 from deep_sort import DeepSort
-from util import draw_bboxes
+from util import DeviceVideoStream, draw_bboxes
 
 
 class Detector(object):
@@ -30,18 +30,20 @@ class Detector(object):
             self.output_dir = os.path.join(os.getcwd(), "outputs")
         else:
             self.output_dir = args.output_dir
+        self.using_camera = False
 
     def __enter__(self):
         self.open_stream()
         self.im_width = int(self.vdo.get(cv2.CAP_PROP_FRAME_WIDTH))
         self.im_height = int(self.vdo.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-        if self.args.frame_rate > 0:
-            if self.args.frame_rate <= self.source_fps:
-                self.sampling_delay = int(round(self.source_fps / self.args.frame_rate))  # frames
-            else:
-                raise ValueError("Frame rate can't be greater than source: %sfps" % self.source_fps)
-            self.frame_period = 1.0 / self.args.frame_rate  # seconds
+        if self.args.frame_rate > 0 and not self.using_camera:
+            if not self.using_camera:
+                if self.args.frame_rate <= self.source_fps:
+                    self.sampling_delay = int(round(self.source_fps / self.args.frame_rate))  # frames
+                else:
+                    raise ValueError("Frame rate can't be greater than source: %sfps" % self.source_fps)
+                self.frame_period = 1.0 / self.args.frame_rate  # seconds
         else:
             self.sampling_delay = 1
             self.frame_period = 1.0 / self.source_fps  # seconds
@@ -56,7 +58,7 @@ class Detector(object):
             self.output = cv2.VideoWriter(self.args.save_path, fourcc, self.args.frame_rate,
                                           (self.im_width, self.im_height))
 
-        assert self.vdo.isOpened()
+        # assert self.vdo.isOpened()
         return self
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
@@ -65,6 +67,7 @@ class Detector(object):
 
     def detect(self):
 
+        
         # Mass centers
         mc = [np.array([], dtype=np.float).reshape(2, 0, 3) for i in range(2)]  # [[[x_t-1,y_t-1,frame_num_t-1]],
         # [[x_t,y_t,frame_num_t]]]. One array for store positions, one for velocities
@@ -83,12 +86,19 @@ class Detector(object):
 
         counter = self.sampling_delay
         real_frame = 0
-        while self.vdo.grab():
+        while True:
             start = time.time()
-            _, ori_im = self.vdo.retrieve()
+            if not self.using_camera:
+                grabbed, ori_im = self.vdo.read()
+                if not grabbed:
+                    break
+            else:
+                ori_im = self.stream.read()
+
             if counter != self.sampling_delay:
                 counter += 1
                 continue
+
             counter = 1
             real_frame += 1
 
@@ -152,6 +162,8 @@ class Detector(object):
                 self.output.write(ori_im)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
+        if self.using_camera:
+            self.stream.stop()
         self.close_text_files()
 
     def add_subjects(self, frame_identities, array_to_complete):
@@ -246,8 +258,10 @@ class Detector(object):
         else:
             try:
                 device_id = int(self.args.VIDEO_PATH)
-                self.vdo.open(device_id)
-                self.source_fps = self.vdo.get(cv2.CAP_PROP_FPS)
+                self.using_camera = True
+                self.stream = DeviceVideoStream(device_id).start()
+                self.source_fps = self.stream.stream.get(cv2.CAP_PROP_FPS)
+                self.vdo = self.stream.stream
             except ValueError:
                 raise ValueError("{} is neither a valid video file, a folder with valid images or a proper device id.".format(self.args.VIDEO_PATH))
 

@@ -4,6 +4,7 @@ import os
 from util import text_to_npy
 
 from demo_yolo3_deepsort import Detector
+from distutils.util import strtobool
 
 
 def parse_args(args=None):

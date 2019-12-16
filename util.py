@@ -1,7 +1,69 @@
 import cv2
 import numpy as np
 import os
+import sys
+
 from math import ceil
+from threading import Thread
+from queue import LifoQueue, Empty
+
+
+class DeviceVideoStream:
+    def __init__(self, device, stack_size=30):
+        # initialize the file video stream along with the boolean
+        # used to indicate if the thread should be stopped or not
+        self.stream = cv2.VideoCapture(device)
+        self.stopped = False
+
+        # initialize the queue used to store frames read from
+        # the video file
+        self.stack = LifoQueue(maxsize=stack_size)
+
+    def start(self):
+        # start a thread to read frames from the file video stream
+        t = Thread(target=self.update, args=())
+        t.daemon = True
+        t.start()
+        return self
+
+    def update(self):
+        # keep looping infinitely
+        while True:
+            
+            # if the thread indicator variable is set, stop the
+            # thread
+            if self.stopped:
+                return
+
+            # otherwise, ensure the queue has room in it
+            if not self.stack.full():
+                # read the next frame from the file
+                (grabbed, frame) = self.stream.read()
+
+                # if the `grabbed` boolean is `False`, then we have
+                # reached the end of the video file
+                if not grabbed:
+                    self.stop()
+                    return
+
+                # add the frame to the queue
+                self.stack.put(frame)
+
+    def read(self):
+        # return next frame in the queue
+        last_frame = self.stack.get()
+        while not self.stack.empty():
+            try:
+                self.stack.get(False)
+            except Empty:
+                continue
+            self.stack.task_done()
+        return last_frame
+
+    def stop(self):
+        # indicate that the thread should be stopped
+        self.stopped = True
+
 
 COLORS_10 = [(144, 238, 144), (178, 34, 34), (221, 160, 221), (0, 255, 0), (0, 128, 0), (210, 105, 30), (220, 20, 60),
              (192, 192, 192), (255, 228, 196), (50, 205, 50), (139, 0, 139), (100, 149, 237), (138, 43, 226),
