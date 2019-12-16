@@ -9,7 +9,7 @@ from queue import LifoQueue, Empty
 
 
 class DeviceVideoStream:
-    def __init__(self, device, stack_size=30):
+    def __init__(self, device, stack_size=0):
         # initialize the file video stream along with the boolean
         # used to indicate if the thread should be stopped or not
         self.stream = cv2.VideoCapture(device)
@@ -52,13 +52,14 @@ class DeviceVideoStream:
     def read(self):
         # return next frame in the queue
         last_frame = self.stack.get()
+        stack_size = self.stack.qsize() + 1
         while not self.stack.empty():
             try:
                 self.stack.get(False)
             except Empty:
                 continue
             self.stack.task_done()
-        return last_frame
+        return last_frame, stack_size
 
     def stop(self):
         # indicate that the thread should be stopped

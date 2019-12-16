@@ -88,12 +88,13 @@ class Detector(object):
         real_frame = 0
         while True:
             start = time.time()
+            print(self.source_fps)
             if not self.using_camera:
                 grabbed, ori_im = self.vdo.read()
                 if not grabbed:
                     break
             else:
-                ori_im = self.stream.read()
+                ori_im, buffered_frames = self.stream.read()
 
             if counter != self.sampling_delay:
                 counter += 1
@@ -106,8 +107,12 @@ class Detector(object):
             im = ori_im
             bbox_xcycwh, cls_conf, cls_ids = self.yolo3(im)
 
-            self.frame_index += 1
-            frame_strs = [["frame_%s," % self.frame_index for i in range(len(self.outputs_dict[0]))] for j in
+            
+            if not self.using_camera:
+                self.frame_index += 1
+            else:
+                self.frame_index += buffered_frames
+            frame_strs = [["frame_%s," % real_frame for i in range(len(self.outputs_dict[0]))] for j in
                           range(len(self.outputs_dict.keys()))]
 
             if bbox_xcycwh is not None:
@@ -152,7 +157,7 @@ class Detector(object):
                     self.outputs_dict[i][j].write("%s\n" % frame_strs[i][j])
 
             end = time.time()
-            print("time: {:.3f}s, fps: {:.1f}, frame_number: {}".format(end - start, 1 / (end - start), real_frame))
+            print("time: {:.3f}s, fps: {:.1f}, processed frames: {}".format(end - start, 1 / (end - start), real_frame))
 
             if not bool(strtobool(self.args.ignore_display)):
                 cv2.imshow("test", ori_im)
