@@ -9,6 +9,7 @@ from queue import LifoQueue, Empty
 
 
 class DeviceVideoStream:
+    # Idea from: https://www.pyimagesearch.com/2017/02/06/faster-video-file-fps-with-cv2-videocapture-and-opencv/
     def __init__(self, device, stack_size=0):
         # initialize the file video stream along with the boolean
         # used to indicate if the thread should be stopped or not
@@ -162,8 +163,8 @@ def text_to_npy(database_text_files_dir):
         video_file_array = np.array([], dtype=np.float).reshape(0, num_frames, num_coordinates * num_point_features)
 
         for file_num, text_file in enumerate(text_files):
-            f = open(text_file, 'r')
-            frames = f.readlines()
+            with open(text_file, 'r') as f:
+                frames = f.readlines()
             for frame in frames:
                 if frame.startswith("#"):
                     continue

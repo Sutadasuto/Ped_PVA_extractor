@@ -66,7 +66,6 @@ class Detector(object):
             print(exc_type, exc_value, exc_traceback)
 
     def detect(self):
-
         
         # Mass centers
         mc = [np.array([], dtype=np.float).reshape(2, 0, 3) for i in range(2)]  # [[[x_t-1,y_t-1,frame_num_t-1]],
@@ -88,7 +87,7 @@ class Detector(object):
         real_frame = 0
         while True:
             start = time.time()
-            print(self.source_fps)
+            print("Source fps: %s" % self.source_fps)
             if not self.using_camera:
                 grabbed, ori_im = self.vdo.read()
                 if not grabbed:

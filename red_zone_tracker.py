@@ -9,6 +9,7 @@ from distutils.util import strtobool
 from YOLOv3 import YOLOv3
 from deep_sort import DeepSort
 from demo_yolo3_deepsort import Detector
+from math import ceil
 from util import DeviceVideoStream, draw_bboxes
 
 
@@ -79,7 +80,10 @@ class ZoneDetector(Detector):
 
                     if len(self.mouse_coordinates) == 3:
                         x1, y1, x2, y2 = [value for pair in self.mouse_coordinates[:-1] for value in pair]
-                        self.m = (y2 - y1) / (x2 - x1)
+                        try:
+                            self.m = (y2 - y1) / (x2 - x1)
+                        except ZeroDivisionError:
+                            self.m = 1e10
                         if self.m == 0:
                             self.m = 1e-10
                         self.b = y1 - self.m * x1
@@ -100,6 +104,22 @@ class ZoneDetector(Detector):
                         self.red_zone_defined = True
                         break
 
+    def detect_exits(self, tracked_subjects, currently_red_ids):
+        interest_subjects = [np.where(tracked_subjects[:, -1] == track_id)[0][0] for track_id in currently_red_ids if len(np.where(tracked_subjects[:, -1] == track_id)[0]) == 1]
+        bottom_centers = np.array([[int((subject[0] + subject[2]) / 2), subject[3], subject[-1]] for subject in tracked_subjects[interest_subjects, :]])
+        if bottom_centers.shape[0] == 0:
+            return currently_red_ids
+
+        if self.zone == "up":
+            green_indices = np.where(bottom_centers[:, 0] * self.m + self.b >= bottom_centers[:, 1])[0]
+        else:
+            green_indices = np.where(bottom_centers[:, 0] * self.m + self.b <= bottom_centers[:, 1])[0]
+        outside_subjects = bottom_centers[green_indices, -1]
+        for subject in outside_subjects:
+            currently_red_ids.remove(subject)
+        return currently_red_ids
+
+
     def draw_red_zone(self, image):
         thickness = int(self.im_height / 100)
         line_p1 = (int(-self.b / self.m), 0)
@@ -108,9 +128,55 @@ class ZoneDetector(Detector):
         image = cv2.circle(image, self.mouse_coordinates[-1], 2*thickness, (0, 0, 255), thickness)
         return image
 
+    def find_red_indices(self, tracked_subjects, last_tracked_frames, currently_red_ids):
+
+        bottom_centers = np.array([[int((subject[0] + subject[2]) / 2), subject[3]] for subject in tracked_subjects])
+        if self.zone == "up":
+            yellow_indices = np.where(bottom_centers[:, 0] * self.m + self.b < bottom_centers[:, 1])[0]
+        else:
+            yellow_indices = np.where(bottom_centers[:, 0] * self.m + self.b > bottom_centers[:, 1])[0]
+
+        orange_indices = []
+        for index in yellow_indices:
+            track_id = tracked_subjects[index, -1]
+            if track_id not in currently_red_ids:
+                for frame in reversed(range(len(last_tracked_frames))):
+                    try:
+                        orange_indices.append([frame, np.where(last_tracked_frames[frame][:, -1] == track_id)[0][0], index])
+                        continue
+                    except IndexError:
+                        pass
+
+        red_indices = []
+        for index in orange_indices:
+            prev_pos = last_tracked_frames[index[0]][index[1], :]
+            feet_pos = [int((prev_pos[0] + prev_pos[2]) / 2), prev_pos[3]]
+            if self.zone == "up":
+                if feet_pos[1] <= feet_pos[0] * self.m + self.b:
+                    red_indices.append(index[2])
+            else:
+                if feet_pos[1] >= feet_pos[0] * self.m + self.b:
+                    red_indices.append(index[2])
+
+        return red_indices
+
     def select_line(self, event, x, y, flags, param):
         if event == cv2.EVENT_LBUTTONDOWN and len(self.mouse_coordinates) < 3:
             self.mouse_coordinates.append((x, y))
+
+    def write_counts(self, img, currently_red_ids, all_red_ids):
+        im_height = self.im_height
+        display_height = self.display_height
+        font_scale = 3 * im_height / display_height
+        font_thickness = ceil(3 * im_height / display_height)
+        t1 = "Overall count: %s" % len(all_red_ids)
+        t2 = "Current count: %s" % len(currently_red_ids)
+        t_size = cv2.getTextSize(t1, cv2.FONT_HERSHEY_PLAIN, font_scale, font_thickness)[0]
+        cv2.putText(img, t1, (0, t_size[1]), cv2.FONT_HERSHEY_PLAIN, font_scale, [255, 255, 255],
+                    font_thickness)
+        cv2.putText(img, t2, (0, ceil(2.1 * t_size[1])), cv2.FONT_HERSHEY_PLAIN, font_scale, [255, 255, 255],
+                    font_thickness)
+        return img
 
     def detect_per_zone(self):
 
@@ -132,6 +198,10 @@ class ZoneDetector(Detector):
 
         counter = self.sampling_delay
         real_frame = 0
+        n_frames = 5
+        last_n_tracked_frames = []
+        all_detected = []
+        currently_detected = []
         while True:
             start = time.time()
             print("Source fps: %s" % self.source_fps)
@@ -182,13 +252,11 @@ class ZoneDetector(Detector):
                                 self.add_subjects(outputs[:, -1], analyzed_points[point][feature])
 
                     outputs[:, -1] -= 1
-                    bottom_centers = np.array([
-                        [int((subject[0] + subject[2]) / 2), subject[3]] for subject in outputs
-                    ])
-                    if self.zone == "up":
-                        red_indices = np.where(bottom_centers[:, 0] * self.m + self.b < bottom_centers[:, 1])
-                    else:
-                        red_indices = np.where(bottom_centers[:, 0] * self.m + self.b > bottom_centers[:, 1])
+                    red_indices = self.find_red_indices(outputs, last_n_tracked_frames, currently_detected)
+                    currently_detected += outputs[red_indices, -1].tolist()
+                    currently_detected = sorted(list(set(currently_detected)))
+                    all_detected += currently_detected
+                    all_detected = sorted(list(set(all_detected)))
 
                     mass_centers = np.array([
                         [int((subject[0] + subject[2]) / 2), int((subject[1] + subject[3]) / 2)] for subject in outputs
@@ -198,6 +266,8 @@ class ZoneDetector(Detector):
                     tr_corners = np.concatenate((br_corners[:, 0][:, None], tl_corners[:, 1][:, None]), axis=1)
                     bl_corners = np.concatenate((tl_corners[:, 0][:, None], br_corners[:, 1][:, None]), axis=1)
 
+                    currently_detected = self.detect_exits(outputs, currently_detected)
+                    red_indices = [np.where(outputs[:, -1] == track_id)[0][0] for track_id in currently_detected if len(np.where(outputs[:, -1] == track_id)[0]) == 1]
                     mass_centers = mass_centers[red_indices]
                     tl_corners = tl_corners[red_indices]
                     br_corners = br_corners[red_indices]
@@ -207,7 +277,6 @@ class ZoneDetector(Detector):
 
                     bbox_xyxy = outputs[:, :4][red_indices]
                     identities = outputs[:, 4][red_indices]
-                    red_zone_feet = bottom_centers[red_indices]
 
                     for i in range(len(analyzed_points)):
                         frame_strs[i][0], frame_strs[i][1], frame_strs[i][2] = self.feat_to_str(
@@ -217,10 +286,20 @@ class ZoneDetector(Detector):
                             frame_strs[i][0], frame_strs[i][1], frame_strs[i][2])
 
                     ori_im = draw_bboxes(self, ori_im, bbox_xyxy, identities)
+                    red_zone_feet = np.array(
+                        [[int((subject[0] + subject[2]) / 2), subject[3]] for subject in outputs])
+
                     for point in red_zone_feet:
                         cv2.circle(ori_im, tuple(point), int(self.im_height / 100), (0, 0, 255), -1)
+
+                    if len(last_n_tracked_frames) < n_frames:
+                        last_n_tracked_frames.append(outputs)
+                    else:
+                        last_n_tracked_frames = last_n_tracked_frames[1:] + [outputs]
+
             else:
                 ori_im = self.draw_red_zone(ori_im)
+            ori_im = self.write_counts(ori_im, currently_detected, all_detected)
 
             for i in range(len(frame_strs)):
                 for j in range(len(frame_strs[i])):
