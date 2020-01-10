@@ -22,6 +22,8 @@ class ZoneDetector(Detector):
         self.zone = None
         self.mouse_coordinates = []
         self.red_zone_defined = False
+        self.track_point_position = args.track_point_position
+        self.n_frames = args.frames_memory_size
 
     def define_red_zone(self, image, choice):
         if type(choice) is tuple:
@@ -104,21 +106,32 @@ class ZoneDetector(Detector):
                         self.red_zone_defined = True
                         break
 
-    def detect_exits(self, tracked_subjects, currently_red_ids):
+    def detect_exits(self, tracked_subjects, currently_red_ids, lost_ids):
         interest_subjects = [np.where(tracked_subjects[:, -1] == track_id)[0][0] for track_id in currently_red_ids if len(np.where(tracked_subjects[:, -1] == track_id)[0]) == 1]
-        bottom_centers = np.array([[int((subject[0] + subject[2]) / 2), subject[3], subject[-1]] for subject in tracked_subjects[interest_subjects, :]])
-        if bottom_centers.shape[0] == 0:
-            return currently_red_ids
+        if self.track_point_position == "bottom":
+            track_points = np.array([[int((subject[0] + subject[2]) / 2), subject[3], subject[-1]] for subject in tracked_subjects[interest_subjects, :]])
+        elif self.track_point_position == "top":
+            track_points = np.array([[int((subject[0] + subject[2]) / 2), subject[1], subject[-1]] for subject in tracked_subjects[interest_subjects, :]])
+        else:
+            raise ValueError
+        if track_points.shape[0] == 0:
+            lost_ids += currently_red_ids
+            lost_ids = sorted(lost_ids)
+            currently_red_ids = []
+            return currently_red_ids, lost_ids
 
         if self.zone == "up":
-            green_indices = np.where(bottom_centers[:, 0] * self.m + self.b >= bottom_centers[:, 1])[0]
+            green_indices = np.where(track_points[:, 0] * self.m + self.b >= track_points[:, 1])[0]
         else:
-            green_indices = np.where(bottom_centers[:, 0] * self.m + self.b <= bottom_centers[:, 1])[0]
-        outside_subjects = bottom_centers[green_indices, -1]
-        for subject in outside_subjects:
-            currently_red_ids.remove(subject)
-        return currently_red_ids
-
+            green_indices = np.where(track_points[:, 0] * self.m + self.b <= track_points[:, 1])[0]
+        outside_subjects = track_points[green_indices, -1]
+        for track_id in outside_subjects:
+            currently_red_ids.remove(track_id)
+        for track_id in currently_red_ids:
+            if len(np.where(tracked_subjects[:, -1] == track_id)[0]) == 0:
+                currently_red_ids.remove(track_id)
+                lost_ids.append(track_id)
+        return currently_red_ids, lost_ids
 
     def draw_red_zone(self, image):
         thickness = int(self.im_height / 100)
@@ -128,13 +141,18 @@ class ZoneDetector(Detector):
         image = cv2.circle(image, self.mouse_coordinates[-1], 2*thickness, (0, 0, 255), thickness)
         return image
 
-    def find_red_indices(self, tracked_subjects, last_tracked_frames, currently_red_ids):
+    def find_red_indices(self, tracked_subjects, last_tracked_frames, currently_red_ids, lost_ids):
 
-        bottom_centers = np.array([[int((subject[0] + subject[2]) / 2), subject[3]] for subject in tracked_subjects])
-        if self.zone == "up":
-            yellow_indices = np.where(bottom_centers[:, 0] * self.m + self.b < bottom_centers[:, 1])[0]
+        if self.track_point_position == "bottom":
+            track_points = np.array([[int((subject[0] + subject[2]) / 2), subject[3]] for subject in tracked_subjects])
+        elif self.track_point_position == "top":
+            track_points = np.array([[int((subject[0] + subject[2]) / 2), subject[1]] for subject in tracked_subjects])
         else:
-            yellow_indices = np.where(bottom_centers[:, 0] * self.m + self.b > bottom_centers[:, 1])[0]
+            raise ValueError
+        if self.zone == "up":
+            yellow_indices = np.where(track_points[:, 0] * self.m + self.b < track_points[:, 1])[0]
+        else:
+            yellow_indices = np.where(track_points[:, 0] * self.m + self.b > track_points[:, 1])[0]
 
         orange_indices = []
         for index in yellow_indices:
@@ -150,15 +168,26 @@ class ZoneDetector(Detector):
         red_indices = []
         for index in orange_indices:
             prev_pos = last_tracked_frames[index[0]][index[1], :]
-            feet_pos = [int((prev_pos[0] + prev_pos[2]) / 2), prev_pos[3]]
+            if self.track_point_position == "bottom":
+                point_pos = [int((prev_pos[0] + prev_pos[2]) / 2), prev_pos[3]]
+            elif self.track_point_position == "top":
+                point_pos = [int((prev_pos[0] + prev_pos[2]) / 2), prev_pos[1]]
+            else:
+                raise ValueError
             if self.zone == "up":
-                if feet_pos[1] <= feet_pos[0] * self.m + self.b:
+                if point_pos[1] <= point_pos[0] * self.m + self.b:
                     red_indices.append(index[2])
             else:
-                if feet_pos[1] >= feet_pos[0] * self.m + self.b:
+                if point_pos[1] >= point_pos[0] * self.m + self.b:
                     red_indices.append(index[2])
 
-        return red_indices
+        for track_id in lost_ids:
+            location = np.where(tracked_subjects[:,-1] == track_id)[0]
+            if len(location) == 1:
+                red_indices.append(location[0])
+                lost_ids.remove(track_id)
+
+        return sorted(red_indices)
 
     def select_line(self, event, x, y, flags, param):
         if event == cv2.EVENT_LBUTTONDOWN and len(self.mouse_coordinates) < 3:
@@ -172,6 +201,10 @@ class ZoneDetector(Detector):
         t1 = "Overall count: %s" % len(all_red_ids)
         t2 = "Current count: %s" % len(currently_red_ids)
         t_size = cv2.getTextSize(t1, cv2.FONT_HERSHEY_PLAIN, font_scale, font_thickness)[0]
+        cv2.putText(img, t1, (0, t_size[1]), cv2.FONT_HERSHEY_PLAIN, font_scale, [0, 0, 0],
+                    font_thickness * 2)
+        cv2.putText(img, t2, (0, ceil(2.1 * t_size[1])), cv2.FONT_HERSHEY_PLAIN, font_scale, [0, 0, 0],
+                    font_thickness * 2)
         cv2.putText(img, t1, (0, t_size[1]), cv2.FONT_HERSHEY_PLAIN, font_scale, [255, 255, 255],
                     font_thickness)
         cv2.putText(img, t2, (0, ceil(2.1 * t_size[1])), cv2.FONT_HERSHEY_PLAIN, font_scale, [255, 255, 255],
@@ -198,10 +231,10 @@ class ZoneDetector(Detector):
 
         counter = self.sampling_delay
         real_frame = 0
-        n_frames = 5
         last_n_tracked_frames = []
         all_detected = []
         currently_detected = []
+        lost_detected = []
         while True:
             start = time.time()
             print("Source fps: %s" % self.source_fps)
@@ -252,7 +285,7 @@ class ZoneDetector(Detector):
                                 self.add_subjects(outputs[:, -1], analyzed_points[point][feature])
 
                     outputs[:, -1] -= 1
-                    red_indices = self.find_red_indices(outputs, last_n_tracked_frames, currently_detected)
+                    red_indices = self.find_red_indices(outputs, last_n_tracked_frames, currently_detected, lost_detected)
                     currently_detected += outputs[red_indices, -1].tolist()
                     currently_detected = sorted(list(set(currently_detected)))
                     all_detected += currently_detected
@@ -266,7 +299,7 @@ class ZoneDetector(Detector):
                     tr_corners = np.concatenate((br_corners[:, 0][:, None], tl_corners[:, 1][:, None]), axis=1)
                     bl_corners = np.concatenate((tl_corners[:, 0][:, None], br_corners[:, 1][:, None]), axis=1)
 
-                    currently_detected = self.detect_exits(outputs, currently_detected)
+                    currently_detected, lost_detected = self.detect_exits(outputs, currently_detected, lost_detected)
                     red_indices = [np.where(outputs[:, -1] == track_id)[0][0] for track_id in currently_detected if len(np.where(outputs[:, -1] == track_id)[0]) == 1]
                     mass_centers = mass_centers[red_indices]
                     tl_corners = tl_corners[red_indices]
@@ -286,18 +319,32 @@ class ZoneDetector(Detector):
                             frame_strs[i][0], frame_strs[i][1], frame_strs[i][2])
 
                     ori_im = draw_bboxes(self, ori_im, bbox_xyxy, identities)
-                    red_zone_feet = np.array(
-                        [[int((subject[0] + subject[2]) / 2), subject[3]] for subject in outputs])
+                    if self.track_point_position == "bottom":
+                        tracked_points = np.array(
+                            [[int((subject[0] + subject[2]) / 2), subject[3]] for subject in outputs])
+                    elif self.track_point_position == "top":
+                        tracked_points = np.array(
+                            [[int((subject[0] + subject[2]) / 2), subject[1]] for subject in outputs])
 
-                    for point in red_zone_feet:
+                    for point in tracked_points:
                         cv2.circle(ori_im, tuple(point), int(self.im_height / 100), (0, 0, 255), -1)
 
-                    if len(last_n_tracked_frames) < n_frames:
+                    if len(currently_detected) == 1 and tracked_points.shape[0] == 0:
+                        a = 0
+
+                    if len(last_n_tracked_frames) < self.n_frames:
                         last_n_tracked_frames.append(outputs)
                     else:
                         last_n_tracked_frames = last_n_tracked_frames[1:] + [outputs]
+                else:
+                    lost_detected += currently_detected
+                    lost_detected = sorted(lost_detected)
+                    currently_detected = []
 
             else:
+                lost_detected += currently_detected
+                lost_detected = sorted(lost_detected)
+                currently_detected = []
                 ori_im = self.draw_red_zone(ori_im)
             ori_im = self.write_counts(ori_im, currently_detected, all_detected)
 
@@ -326,6 +373,8 @@ def parse_args(args=None):
     parser.add_argument("VIDEO_PATH", type=str)
     parser.add_argument("--output_dir", type=str, default=None)
     parser.add_argument("--frame_rate", type=float, default=0)
+    parser.add_argument("--track_point_position", type=str, default="top")
+    parser.add_argument("--frames_memory_size", type=int, default=10)
     parser.add_argument("--yolo_cfg", type=str, default="YOLOv3/cfg/yolo_v3.cfg")
     parser.add_argument("--yolo_weights", type=str, default="YOLOv3/yolov3.weights")
     parser.add_argument("--yolo_names", type=str, default="YOLOv3/cfg/coco.names")
