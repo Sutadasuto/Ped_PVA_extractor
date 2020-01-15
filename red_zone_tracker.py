@@ -301,15 +301,17 @@ class ZoneDetector(Detector):
 
                     currently_detected, lost_detected = self.detect_exits(outputs, currently_detected, lost_detected)
                     red_indices = [np.where(outputs[:, -1] == track_id)[0][0] for track_id in currently_detected if len(np.where(outputs[:, -1] == track_id)[0]) == 1]
-                    mass_centers = mass_centers[red_indices]
-                    tl_corners = tl_corners[red_indices]
-                    br_corners = br_corners[red_indices]
-                    tr_corners = tr_corners[red_indices]
-                    bl_corners = bl_corners[red_indices]
+                    # mass_centers = mass_centers[red_indices]
+                    # tl_corners = tl_corners[red_indices]
+                    # br_corners = br_corners[red_indices]
+                    # tr_corners = tr_corners[red_indices]
+                    # bl_corners = bl_corners[red_indices]
                     analyzed_points_current_values = [mass_centers, tl_corners, tr_corners, bl_corners, br_corners]
 
-                    bbox_xyxy = outputs[:, :4][red_indices]
-                    identities = outputs[:, 4][red_indices]
+                    # bbox_xyxy = outputs[:, :4][red_indices]
+                    # identities = outputs[:, 4][red_indices]
+                    bbox_xyxy = outputs[:, :4]
+                    identities = outputs[:, 4]
 
                     for i in range(len(analyzed_points)):
                         frame_strs[i][0], frame_strs[i][1], frame_strs[i][2] = self.feat_to_str(
@@ -318,7 +320,8 @@ class ZoneDetector(Detector):
                             identities, analyzed_points[i][1],
                             frame_strs[i][0], frame_strs[i][1], frame_strs[i][2])
 
-                    ori_im = draw_bboxes(self, ori_im, bbox_xyxy, identities)
+                    ori_im = draw_bboxes(self, ori_im, bbox_xyxy, identities, color=(0, 155, 0))
+                    ori_im = draw_bboxes(self, ori_im, bbox_xyxy[red_indices], identities[red_indices], color="red")
                     if self.track_point_position == "bottom":
                         tracked_points = np.array(
                             [[int((subject[0] + subject[2]) / 2), subject[3]] for subject in outputs])
@@ -328,9 +331,6 @@ class ZoneDetector(Detector):
 
                     for point in tracked_points:
                         cv2.circle(ori_im, tuple(point), int(self.im_height / 100), (0, 0, 255), -1)
-
-                    if len(currently_detected) == 1 and tracked_points.shape[0] == 0:
-                        a = 0
 
                     if len(last_n_tracked_frames) < self.n_frames:
                         last_n_tracked_frames.append(outputs)

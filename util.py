@@ -75,7 +75,7 @@ COLORS_10 = [(144, 238, 144), (178, 34, 34), (221, 160, 221), (0, 255, 0), (0, 1
              (173, 255, 47),
              (255, 20, 147), (219, 112, 147), (186, 85, 211), (199, 21, 133), (148, 0, 211), (255, 99, 71),
              (144, 238, 144),
-             (255, 255, 0), (230, 230, 250), (0, 0, 255), (128, 128, 0), (189, 183, 107), (255, 255, 224),
+             (255, 255, 0), (230, 230, 250), (0, 0, 55), (128, 128, 0), (189, 183, 107), (255, 255, 224),
              (128, 128, 128),
              (105, 105, 105), (64, 224, 208), (205, 133, 63), (0, 128, 128), (72, 209, 204), (139, 69, 19),
              (255, 245, 238),
@@ -104,7 +104,7 @@ def draw_bbox(img, box, cls_name, identity=None, offset=(0, 0)):
     return img
 
 
-def draw_bboxes(detector, img, bbox, identities=None, offset=(0, 0)):
+def draw_bboxes(detector, img, bbox, identities=None, color=None, offset=(0, 0)):
     for i, box in enumerate(bbox):
         # im_width = detector.im_width
         im_height = detector.im_height
@@ -120,11 +120,18 @@ def draw_bboxes(detector, img, bbox, identities=None, offset=(0, 0)):
         y2 += offset[1]
         # box text and bar
         id = int(identities[i]) if identities is not None else 0
-        color = COLORS_10[id % len(COLORS_10)]
+        if color == "red":
+            box_color = (0, 0, 255)
+        elif color is None:
+            box_color = COLORS_10[id % len(COLORS_10)]
+        else:
+            if type(color) is not tuple and type(color) is not list or len(color) != 3:
+                raise ValueError("Expected a tuple or list with size 3, 'None', or 'red'.")
+            box_color = color
         label = '{}{:d}'.format("", id)
         t_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_PLAIN, font_scale, font_thickness)[0]
-        cv2.rectangle(img, (x1, y1), (x2, y2), color, bbox_thickness)
-        cv2.rectangle(img, (x1, y1 - (t_size[1] + 4)), (x1 + t_size[0] + 3, y1), color, -1)
+        cv2.rectangle(img, (x1, y1), (x2, y2), box_color, bbox_thickness)
+        cv2.rectangle(img, (x1, y1 - (t_size[1] + 4)), (x1 + t_size[0] + 3, y1), box_color, -1)
         cv2.putText(img, label, (x1, y1), cv2.FONT_HERSHEY_PLAIN, font_scale, [255, 255, 255], font_thickness)
     return img
 
