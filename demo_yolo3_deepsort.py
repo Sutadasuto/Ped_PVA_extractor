@@ -24,7 +24,7 @@ class Detector(object):
         self.vdo = cv2.VideoCapture()
         self.yolo3 = YOLOv3(args.yolo_cfg, args.yolo_weights, args.yolo_names, is_xywh=True,
                             conf_thresh=args.conf_thresh, nms_thresh=args.nms_thresh, use_cuda=use_cuda)
-        self.deepsort = DeepSort(args.deepsort_checkpoint, use_cuda=use_cuda)
+        self.deepsort = DeepSort(args.deepsort_checkpoint, args.max_dist, args.max_age, use_cuda)
         self.class_names = self.yolo3.class_names
         if args.output_dir is None:
             self.output_dir = os.path.join(os.getcwd(), "outputs")
@@ -106,7 +106,6 @@ class Detector(object):
             im = ori_im
             bbox_xcycwh, cls_conf, cls_ids = self.yolo3(im)
 
-            
             if not self.using_camera:
                 self.frame_index += 1
             else:
@@ -299,6 +298,7 @@ def parse_args(args=None):
     parser.add_argument("--nms_thresh", type=float, default=0.4)
     parser.add_argument("--deepsort_checkpoint", type=str, default="deep_sort/deep/checkpoint/ckpt.t7")
     parser.add_argument("--max_dist", type=float, default=0.2)
+    parser.add_argument("--max_age", type=int, default=70)
     parser.add_argument("--ignore_display", type=str, default="False")
     parser.add_argument("--display_width", type=int, default=800)
     parser.add_argument("--display_height", type=int, default=600)
