@@ -16,21 +16,37 @@ class ZoneDetector(Detector):
         self.text_file_path = args.VIDEO_PATH.split(".")
         self.text_file_path[-1] = "txt"
         self.text_file_path = ".".join(self.text_file_path)
-        self.m, self.b, self.zone = self.read_read_line_from_text(self.text_file_path)
-        if self.m is None and self.b is None and self.zone is None:
-            self.red_zone_defined = False
-        else:
-            self.red_zone_defined = True
-        self.mouse_coordinates = []
+        self.m = self.b = self.zone = None
+        self.red_zone_defined = False
+        self.mouse_coordinates = self.read_line_from_text(self.text_file_path)
         self.track_point_position = args.track_point_position
         self.n_frames = args.frames_memory_size
 
+    def calculate_red_line(self, mouse_coordinates):
+        x1, y1, x2, y2 = [value for pair in mouse_coordinates[:-1] for value in pair]
+        try:
+            self.m = (y2 - y1) / (x2 - x1)
+        except ZeroDivisionError:
+            self.m = 1e10
+        if self.m == 0:
+            self.m = 1e-10
+        self.b = y1 - self.m * x1
+        if self.mouse_coordinates[-1][-1] >= self.mouse_coordinates[-1][0] * self.m + self.b:
+            self.zone = "up"
+        else:
+            self.zone = "down"
+
     def define_red_zone(self, image, choice):
-        if type(choice) is tuple:
+        if len(self.mouse_coordinates) == 3:
+            self.calculate_red_line(self.mouse_coordinates)
+            self.red_zone_defined = True
+
+        elif type(choice) is tuple:
             self.m, self.b, self.zone = choice
             if type(self.m) is not float or type(self.b) is not float or (self.zone != "up" or self.zone != "down"):
                 raise ValueError("Expected format is (float, float, str), where the str must be either 'up' or 'down'.")
             self.red_zone_defined = True
+
         elif choice == "draw":
             if type(image) == DeviceVideoStream:
                 cv2.namedWindow("Sample image")
@@ -42,19 +58,8 @@ class ZoneDetector(Detector):
                     new_image, _ = image.read()
 
                     if len(self.mouse_coordinates) == 3:
-                        x1, y1, x2, y2 = [value for pair in self.mouse_coordinates[:-1] for value in pair]
-                        try:
-                            self.m = (y2 - y1) / (x2 - x1)
-                        except ZeroDivisionError:
-                            self.m = 1e10
-                        if self.m == 0:
-                            self.m = 1e-10
-                        self.b = y1 - self.m * x1
+                        self.calculate_red_line(self.mouse_coordinates)
                         new_image = self.draw_red_zone(new_image)
-                        if self.mouse_coordinates[-1][-1] >= self.mouse_coordinates[-1][0] * self.m + self.b:
-                            self.zone = "up"
-                        else:
-                            self.zone = "down"
 
                     cv2.imshow("Sample image", new_image)
                     key = cv2.waitKey(1) & 0xFF
@@ -81,19 +86,8 @@ class ZoneDetector(Detector):
                     key = cv2.waitKey(1) & 0xFF
 
                     if len(self.mouse_coordinates) == 3:
-                        x1, y1, x2, y2 = [value for pair in self.mouse_coordinates[:-1] for value in pair]
-                        try:
-                            self.m = (y2 - y1) / (x2 - x1)
-                        except ZeroDivisionError:
-                            self.m = 1e10
-                        if self.m == 0:
-                            self.m = 1e-10
-                        self.b = y1 - self.m * x1
+                        self.calculate_red_line(self.mouse_coordinates)
                         image = self.draw_red_zone(image)
-                        if self.mouse_coordinates[-1][-1] >= self.mouse_coordinates[-1][0] * self.m + self.b:
-                            self.zone = "up"
-                        else:
-                            self.zone = "down"
 
                         # if the 'r' key is pressed, reset the cropping region
                     if key == ord("r"):
@@ -105,7 +99,7 @@ class ZoneDetector(Detector):
                         cv2.destroyWindow("Sample image")
                         self.red_zone_defined = True
                         break
-        self.write_red_line_to_text(str(self.m), (self.b), self.zone, self.text_file_path)
+        self.write_red_line_to_text(self.mouse_coordinates, self.text_file_path)
 
     def detect_exits(self, tracked_subjects, currently_red_ids, lost_ids):
         interest_subjects = [np.where(tracked_subjects[:, -1] == track_id)[0][0] for track_id in currently_red_ids if
@@ -194,46 +188,19 @@ class ZoneDetector(Detector):
 
         return sorted(red_indices)
 
-    def read_read_line_from_text(self, path_to_text):
+    def read_line_from_text(self, path_to_text):
         if os.path.isfile(path_to_text):
             with open(path_to_text, 'r') as text_file:
                 data = text_file.readlines()[0].strip()
-            pairs = data.split(",")
-            m = float(pairs[0].split(":")[1])
-            b = float(pairs[1].split(":")[1])
-            zone = pairs[2].split(":")[1]
-
+            points = data.split(";")
+            mouse_coordinates = [(int(point.split(",")[1]), int(point.split(",")[2])) for point in points]
         else:
-            m = None
-            b = None
-            zone = None
-        return m, b, zone
+            mouse_coordinates = []
+        return mouse_coordinates
 
     def select_line(self, event, x, y, flags, param):
         if event == cv2.EVENT_LBUTTONDOWN and len(self.mouse_coordinates) < 3:
             self.mouse_coordinates.append((x, y))
-
-    def simulate_mouse_events(self):
-        self.mouse_coordinates.append((int(-self.b / self.m), 0))
-        self.mouse_coordinates.append((int((self.im_height - 1 - self.b) / self.m), self.im_height - 1))
-        x_1 = self.mouse_coordinates[0][0]
-        x_2 = self.mouse_coordinates[1][0]
-        if x_1 < 0:
-            x_1 = 0
-        elif x_1 >= self.im_width:
-            x_1 = self.im_width
-        if x_2 < 0:
-            x_2 = 0
-        elif x_2 >= self.im_width:
-            x_2 = self.im_width
-
-        roi_x = int((x_1 + x_2) / 2)
-        if self.zone == "up":
-            shift = int((self.im_height - self.m * roi_x + self.b) / 2)
-        else:
-            shift = -int(self.m * roi_x + self.b / 2)
-        roi_y = int(self.m * roi_x + self.b + shift)
-        self.mouse_coordinates.append((roi_x, roi_y))
 
     def write_counts(self, img, currently_red_ids, all_red_ids):
         im_height = self.im_height
@@ -253,9 +220,12 @@ class ZoneDetector(Detector):
                     font_thickness)
         return img
 
-    def write_red_line_to_text(self, m, b, zone, text_file_path):
-        string = "slope:%s,bias:%s,region of interest:%s\n" % (self.m, self.b, self.zone)
-        help = "# X axis is positive to the right of the image. Y axis is positive downwards in the image. ROI is either up or down according to this convention."
+    def write_red_line_to_text(self, mouse_coordinates, text_file_path):
+        string = []
+        for index, point in enumerate(mouse_coordinates):
+            string.append("point%s,%s,%s" % (index, mouse_coordinates[index][0], mouse_coordinates[index][1]))
+        string = ";".join(string) + "\n"
+        help = "# Three points as clicked in the GUI when this file doesn't exist. Point number is followed by its x and y coordinates, defined as pixel position in the image."
         with open(text_file_path, 'w') as text_file:
             text_file.writelines([string, help])
 
@@ -283,11 +253,9 @@ class ZoneDetector(Detector):
         all_detected = []
         currently_detected = []
         lost_detected = []
-        if self.red_zone_defined:
-            self.simulate_mouse_events()
         while True:
             start = time.time()
-            print("Source fps: %s" % self.source_fps)
+            print("Source fps: %s" % round(self.source_fps, 2))
             if not self.using_camera:
                 grabbed, ori_im = self.vdo.read()
                 if not grabbed:
