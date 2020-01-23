@@ -87,7 +87,6 @@ class Detector(object):
         real_frame = 0
         while True:
             start = time.time()
-            print("Source fps: %s" % round(self.source_fps, 2))
             if not self.using_camera:
                 grabbed, ori_im = self.vdo.read()
                 if not grabbed:
@@ -155,7 +154,7 @@ class Detector(object):
                     self.outputs_dict[i][j].write("%s\n" % frame_strs[i][j])
 
             end = time.time()
-            print("time: {:.3f}s, fps: {:.1f}, processed frames: {}".format(end - start, 1 / (end - start), real_frame))
+            print("Source fps: {}, frame time: {:.3f}s, processing fps: {:.1f}, processed frames so far: {}".format(round(self.source_fps, 2), end - start, 1 / (end - start), real_frame))
 
             if not bool(strtobool(self.args.ignore_display)):
                 cv2.imshow("test", ori_im)

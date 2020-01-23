@@ -13,97 +13,102 @@ class ZoneDetector(Detector):
 
     def __init__(self, args):
         super().__init__(args)
-        self.text_file_path = args.VIDEO_PATH.split(".")
-        self.text_file_path[-1] = "txt"
-        self.text_file_path = ".".join(self.text_file_path)
-        self.m = self.b = self.zone = None
+        if args.red_line_txt is None:
+            self.text_file_path = args.VIDEO_PATH.split(".")
+            self.text_file_path[-1] = "txt"
+            self.text_file_path = ".".join(self.text_file_path)
+        self.ms, self.bs, self.zones = [], [], []
         self.red_zone_defined = False
         self.mouse_coordinates = self.read_line_from_text(self.text_file_path)
         self.track_point_position = args.track_point_position
         self.n_frames = args.frames_memory_size
 
     def calculate_red_line(self, mouse_coordinates):
-        x1, y1, x2, y2 = [value for pair in mouse_coordinates[:-1] for value in pair]
-        try:
-            self.m = (y2 - y1) / (x2 - x1)
-        except ZeroDivisionError:
-            self.m = 1e10
-        if self.m == 0:
-            self.m = 1e-10
-        self.b = y1 - self.m * x1
-        if self.mouse_coordinates[-1][-1] >= self.mouse_coordinates[-1][0] * self.m + self.b:
-            self.zone = "up"
-        else:
-            self.zone = "down"
+        for start_index in range(len(self.mouse_coordinates) - 2):
+            x1, y1, x2, y2 = [value for pair in mouse_coordinates[start_index:start_index + 2] for value in pair]
+            try:
+                self.ms.append((y2 - y1) / (x2 - x1))
+            except ZeroDivisionError:
+                self.ms.append(1e10)
+            if self.ms[-1] == 0:
+                self.ms[-1] = 1e-10
+            self.bs.append(y1 - self.ms[-1] * x1)
 
-    def define_red_zone(self, image, choice):
-        if len(self.mouse_coordinates) == 3:
+        for start_index in range(len(self.mouse_coordinates) - 2):
+            x1, x2 = [pair[0] for pair in mouse_coordinates[start_index:start_index + 2]]
+            min_x = min([x1, x2])
+            max_x = max([x1, x2])
+            if min_x <= self.mouse_coordinates[-1][0] <= max_x:
+                if self.mouse_coordinates[-1][1] >= self.mouse_coordinates[-1][0] * self.ms[start_index] + self.bs[start_index]:
+                    self.zones.append("up")
+                else:
+                    self.zones.append("down")
+                break
+        self.zones = [self.zones[-1]] * len(self.ms)
+
+    def define_red_zone(self, source_image):
+        if len(self.mouse_coordinates) >= 3:
             self.calculate_red_line(self.mouse_coordinates)
             self.red_zone_defined = True
 
-        elif type(choice) is tuple:
-            self.m, self.b, self.zone = choice
-            if type(self.m) is not float or type(self.b) is not float or (self.zone != "up" or self.zone != "down"):
-                raise ValueError("Expected format is (float, float, str), where the str must be either 'up' or 'down'.")
-            self.red_zone_defined = True
+        else:
+            cv2.namedWindow("Sample image")
+            cv2.setMouseCallback("Sample image", self.select_line)
 
-        elif choice == "draw":
-            if type(image) == DeviceVideoStream:
-                cv2.namedWindow("Sample image")
-                cv2.setMouseCallback("Sample image", self.select_line)
+            # keep looping until the 'q' key is pressed
+            while True:
+                # display the image and wait for a keypress
+                if type(source_image) == DeviceVideoStream:
+                    image, _ = source_image.read()
+                else:
+                    image = source_image.copy()
 
-                # keep looping until the 'q' key is pressed
-                while True:
-                    # display the image and wait for a keypress
-                    new_image, _ = image.read()
+                if len(self.mouse_coordinates) >= 3:
+                    image = self.draw_red_zone(image)
 
-                    if len(self.mouse_coordinates) == 3:
-                        self.calculate_red_line(self.mouse_coordinates)
-                        new_image = self.draw_red_zone(new_image)
+                cv2.imshow("Sample image", image)
+                key = cv2.waitKey(1) & 0xFF
 
-                    cv2.imshow("Sample image", new_image)
-                    key = cv2.waitKey(1) & 0xFF
+                # if the 'r' key is pressed, reset the cropping region
+                if key == ord("r"):
+                    self.mouse_coordinates = []
 
-                    # if the 'r' key is pressed, reset the cropping region
-                    if key == ord("r"):
-                        self.mouse_coordinates = []
+                # if the 'q' key is pressed, break from the loop
+                elif key == ord("q") and len(self.mouse_coordinates) >= 3:
+                    cv2.destroyWindow("Sample image")
+                    self.calculate_red_line(self.mouse_coordinates)
+                    self.red_zone_defined = True
+                    break
 
-                    # if the 'q' key is pressed, break from the loop
-                    elif key == ord("q") and len(self.mouse_coordinates) == 3:
-                        cv2.destroyWindow("Sample image")
-                        self.red_zone_defined = True
-                        break
-
-            else:
-                clone = image.copy()
-                cv2.namedWindow("Sample image")
-                cv2.setMouseCallback("Sample image", self.select_line)
-
-                # keep looping until the 'q' key is pressed
-                while True:
-                    # display the image and wait for a keypress
-                    cv2.imshow("Sample image", image)
-                    key = cv2.waitKey(1) & 0xFF
-
-                    if len(self.mouse_coordinates) == 3:
-                        self.calculate_red_line(self.mouse_coordinates)
-                        image = self.draw_red_zone(image)
-
-                        # if the 'r' key is pressed, reset the cropping region
-                    if key == ord("r"):
-                        image = clone.copy()
-                        self.mouse_coordinates = []
-
-                    # if the 'q' key is pressed, break from the loop
-                    elif key == ord("q") and len(self.mouse_coordinates) == 3:
-                        cv2.destroyWindow("Sample image")
-                        self.red_zone_defined = True
-                        break
         self.write_red_line_to_text(self.mouse_coordinates, self.text_file_path)
 
-    def detect_exits(self, tracked_subjects, currently_red_ids, lost_ids):
+    def detect_exits(self, tracked_subjects, currently_red_ids, lost_ids, last_tracked_frames):
+
+        for track_id in currently_red_ids:
+            if len(np.where(tracked_subjects[:, -1] == track_id)[0]) == 0:
+                currently_red_ids.remove(track_id)
+                lost_ids.append(track_id)
+
         interest_subjects = [np.where(tracked_subjects[:, -1] == track_id)[0][0] for track_id in currently_red_ids if
                              len(np.where(tracked_subjects[:, -1] == track_id)[0]) == 1]
+        if len(interest_subjects) == 0:
+            return currently_red_ids, lost_ids
+
+        yellow_indices = []
+        for new_index, index in enumerate(interest_subjects):
+            track_id = tracked_subjects[index, -1]
+            for frame in reversed(range(len(last_tracked_frames))):
+                try:
+                    yellow_indices.append(
+                        [frame, np.where(last_tracked_frames[frame][:, -1] == track_id)[0][0], new_index])
+                    break
+                except IndexError:
+                    pass
+        yellow_indices = np.array(yellow_indices)
+
+        if len(yellow_indices) == 0:
+            return currently_red_ids, lost_ids
+
         if self.track_point_position == "bottom":
             track_points = np.array([[int((subject[0] + subject[2]) / 2), subject[3], subject[-1]] for subject in
                                      tracked_subjects[interest_subjects, :]])
@@ -112,30 +117,62 @@ class ZoneDetector(Detector):
                                      tracked_subjects[interest_subjects, :]])
         else:
             raise ValueError
-        if track_points.shape[0] == 0:
-            lost_ids += currently_red_ids
-            lost_ids = sorted(lost_ids)
-            currently_red_ids = []
-            return currently_red_ids, lost_ids
+        track_points = track_points[yellow_indices[:, -1], :]
 
-        if self.zone == "up":
-            green_indices = np.where(track_points[:, 0] * self.m + self.b >= track_points[:, 1])[0]
-        else:
-            green_indices = np.where(track_points[:, 0] * self.m + self.b <= track_points[:, 1])[0]
-        outside_subjects = track_points[green_indices, -1]
-        for track_id in outside_subjects:
-            currently_red_ids.remove(track_id)
-        for track_id in currently_red_ids:
-            if len(np.where(tracked_subjects[:, -1] == track_id)[0]) == 0:
-                currently_red_ids.remove(track_id)
-                lost_ids.append(track_id)
+        green_indices = []
+        for line_number in range(len(self.ms)):
+            m = self.ms[line_number]
+            b = self.bs[line_number]
+            zone = self.zones[line_number]
+            min_x = min(self.mouse_coordinates[line_number][0], self.mouse_coordinates[line_number + 1][0])
+            max_x = max(self.mouse_coordinates[line_number][0], self.mouse_coordinates[line_number + 1][0])
+            above_min = np.where(track_points[:, 0] >= min_x)
+            below_max = np.where(track_points[:, 0] <= max_x)
+            within_range = np.intersect1d(above_min, below_max)
+            if zone == "up":
+                focused = np.where(track_points[:, 0]*m + b >= track_points[:, 1])[0].tolist()
+            else:
+                focused = np.where(track_points[:, 0]*m + b <= track_points[:, 1])[0].tolist()
+            green_indices += np.intersect1d(focused, within_range).tolist()
+        green_indices = list(set(green_indices))
+
+        for index in green_indices:
+            prev_frame, prev_row, _ = yellow_indices[index]
+            prev_pos = last_tracked_frames[prev_frame][prev_row, :]
+            if self.track_point_position == "bottom":
+                point_pos = [int((prev_pos[0] + prev_pos[2]) / 2), prev_pos[3]]
+            elif self.track_point_position == "top":
+                point_pos = [int((prev_pos[0] + prev_pos[2]) / 2), prev_pos[1]]
+            else:
+                raise ValueError
+            for line_number in range(len(self.ms)):
+                m = self.ms[line_number]
+                b = self.bs[line_number]
+                zone = self.zones[line_number]
+                min_x = min(self.mouse_coordinates[line_number][0], self.mouse_coordinates[line_number + 1][0])
+                max_x = max(self.mouse_coordinates[line_number][0], self.mouse_coordinates[line_number + 1][0])
+                if min_x <= point_pos[0] <= max_x:
+                    if zone == "up":
+                        if point_pos[0]*m + b <= point_pos[1]:
+                            try:
+                                currently_red_ids.remove(track_points[index, -1])
+                            except ValueError:
+                                pass
+                    else:
+                        if point_pos[0] * m + b >= point_pos[1]:
+                            try:
+                                currently_red_ids.remove(track_points[index, -1])
+                            except ValueError:
+                                pass
+
         return currently_red_ids, lost_ids
 
     def draw_red_zone(self, image):
         thickness = int(self.im_height / 100)
-        line_p1 = (int(-self.b / self.m), 0)
-        line_p2 = (int((self.im_height - 1 - self.b) / self.m), self.im_height - 1)
-        image = cv2.line(image, line_p1, line_p2, (0, 0, 255), thickness)
+        for start_index in range(len(self.mouse_coordinates) - 2):
+            line_p1 = self.mouse_coordinates[start_index]
+            line_p2 = self.mouse_coordinates[start_index + 1]
+            image = cv2.line(image, line_p1, line_p2, (0, 0, 255), thickness)
         image = cv2.drawMarker(image, self.mouse_coordinates[-1], (0, 0, 255), cv2.MARKER_CROSS, 4 * thickness, thickness)
         return image
 
@@ -147,10 +184,22 @@ class ZoneDetector(Detector):
             track_points = np.array([[int((subject[0] + subject[2]) / 2), subject[1]] for subject in tracked_subjects])
         else:
             raise ValueError
-        if self.zone == "up":
-            yellow_indices = np.where(track_points[:, 0] * self.m + self.b < track_points[:, 1])[0]
-        else:
-            yellow_indices = np.where(track_points[:, 0] * self.m + self.b > track_points[:, 1])[0]
+
+        yellow_indices = []
+        for line_number in range(len(self.ms)):
+            m = self.ms[line_number]
+            b = self.bs[line_number]
+            min_x = min(self.mouse_coordinates[line_number][0], self.mouse_coordinates[line_number + 1][0])
+            max_x = max(self.mouse_coordinates[line_number][0], self.mouse_coordinates[line_number + 1][0])
+            above_min = np.where(track_points[:, 0] >= min_x)
+            below_max = np.where(track_points[:, 0] <= max_x)
+            within_range = np.intersect1d(above_min, below_max)
+            if self.zones[line_number] == "up":
+                focused = np.where(track_points[:, 0]*m + b < track_points[:, 1])[0]
+            else:
+                focused = np.where(track_points[:, 0]*m + b > track_points[:, 1])[0]
+            yellow_indices += np.intersect1d(focused, within_range).tolist()
+        yellow_indices = list(set(yellow_indices))
 
         orange_indices = []
         for index in yellow_indices:
@@ -160,7 +209,7 @@ class ZoneDetector(Detector):
                     try:
                         orange_indices.append(
                             [frame, np.where(last_tracked_frames[frame][:, -1] == track_id)[0][0], index])
-                        continue
+                        break
                     except IndexError:
                         pass
 
@@ -173,20 +222,26 @@ class ZoneDetector(Detector):
                 point_pos = [int((prev_pos[0] + prev_pos[2]) / 2), prev_pos[1]]
             else:
                 raise ValueError
-            if self.zone == "up":
-                if point_pos[1] <= point_pos[0] * self.m + self.b:
-                    red_indices.append(index[2])
-            else:
-                if point_pos[1] >= point_pos[0] * self.m + self.b:
-                    red_indices.append(index[2])
-
+            for line_number in range(len(self.ms)):
+                m = self.ms[line_number]
+                b = self.bs[line_number]
+                zone = self.zones[line_number]
+                min_x = min(self.mouse_coordinates[line_number][0], self.mouse_coordinates[line_number + 1][0])
+                max_x = max(self.mouse_coordinates[line_number][0], self.mouse_coordinates[line_number + 1][0])
+                if min_x <= point_pos[0] <= max_x:
+                    if zone == "up":
+                        if point_pos[1] <= point_pos[0]*m + b:
+                            red_indices.append(index[2])
+                    else:
+                        if point_pos[1] >= point_pos[0]*m + b:
+                            red_indices.append(index[2])
         for track_id in lost_ids:
             location = np.where(tracked_subjects[:, -1] == track_id)[0]
             if len(location) == 1:
                 red_indices.append(location[0])
                 lost_ids.remove(track_id)
 
-        return sorted(red_indices)
+        return list(set(red_indices))
 
     def read_line_from_text(self, path_to_text):
         if os.path.isfile(path_to_text):
@@ -199,7 +254,7 @@ class ZoneDetector(Detector):
         return mouse_coordinates
 
     def select_line(self, event, x, y, flags, param):
-        if event == cv2.EVENT_LBUTTONDOWN and len(self.mouse_coordinates) < 3:
+        if event == cv2.EVENT_LBUTTONDOWN:
             self.mouse_coordinates.append((x, y))
 
     def write_counts(self, img, currently_red_ids, all_red_ids):
@@ -225,7 +280,7 @@ class ZoneDetector(Detector):
         for index, point in enumerate(mouse_coordinates):
             string.append("point%s,%s,%s" % (index, mouse_coordinates[index][0], mouse_coordinates[index][1]))
         string = ";".join(string) + "\n"
-        help = "# Three points as clicked in the GUI when this file doesn't exist. Point number is followed by its x and y coordinates, defined as pixel position in the image."
+        help = "# Three points as clicked in the GUI when this file doesn't exist.\nPoint number is followed by its x and y coordinates, defined as pixel position in the image.\nLast point is always the region of interest."
         with open(text_file_path, 'w') as text_file:
             text_file.writelines([string, help])
 
@@ -255,16 +310,15 @@ class ZoneDetector(Detector):
         lost_detected = []
         while True:
             start = time.time()
-            print("Source fps: %s" % round(self.source_fps, 2))
             if not self.using_camera:
                 grabbed, ori_im = self.vdo.read()
                 if not grabbed:
                     break
                 if not self.red_zone_defined:
-                    self.define_red_zone(ori_im, "draw")
+                    self.define_red_zone(ori_im)
             else:
                 if not self.red_zone_defined:
-                    self.define_red_zone(self.stream, "draw")
+                    self.define_red_zone(self.stream)
                 ori_im, buffered_frames = self.stream.read()
 
             if counter != self.sampling_delay:
@@ -306,9 +360,9 @@ class ZoneDetector(Detector):
                     red_indices = self.find_red_indices(outputs, last_n_tracked_frames, currently_detected,
                                                         lost_detected)
                     currently_detected += outputs[red_indices, -1].tolist()
-                    currently_detected = sorted(list(set(currently_detected)))
+                    currently_detected = list(set(currently_detected))
                     all_detected += currently_detected
-                    all_detected = sorted(list(set(all_detected)))
+                    all_detected = list(set(all_detected))
 
                     mass_centers = np.array([
                         [int((subject[0] + subject[2]) / 2), int((subject[1] + subject[3]) / 2)] for subject in outputs
@@ -318,7 +372,7 @@ class ZoneDetector(Detector):
                     tr_corners = np.concatenate((br_corners[:, 0][:, None], tl_corners[:, 1][:, None]), axis=1)
                     bl_corners = np.concatenate((tl_corners[:, 0][:, None], br_corners[:, 1][:, None]), axis=1)
 
-                    currently_detected, lost_detected = self.detect_exits(outputs, currently_detected, lost_detected)
+                    currently_detected, lost_detected = self.detect_exits(outputs, currently_detected, lost_detected, last_n_tracked_frames)
                     red_indices = [np.where(outputs[:, -1] == track_id)[0][0] for track_id in currently_detected if
                                    len(np.where(outputs[:, -1] == track_id)[0]) == 1]
                     # mass_centers = mass_centers[red_indices]
@@ -373,7 +427,7 @@ class ZoneDetector(Detector):
                     self.outputs_dict[i][j].write("%s\n" % frame_strs[i][j])
 
             end = time.time()
-            print("time: {:.3f}s, fps: {:.1f}, processed frames: {}".format(end - start, 1 / (end - start), real_frame))
+            print("Source fps: {}, frame time: {:.3f}s, processing fps: {:.1f}, processed frames so far: {}".format(round(self.source_fps, 2), end - start, 1 / (end - start), real_frame), end='\r')
 
             if not bool(strtobool(self.args.ignore_display)):
                 cv2.imshow("test", ori_im)
@@ -383,6 +437,7 @@ class ZoneDetector(Detector):
                 self.output.write(ori_im)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
+        print("Source fps: {}, frame time: {:.3f}s, processing fps: {:.1f}, processed frames so far: {}".format(round(self.source_fps, 2), end - start, 1 / (end - start), real_frame))
         if self.using_camera:
             self.stream.stop()
         self.close_text_files()
@@ -392,6 +447,7 @@ def parse_args(args=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("VIDEO_PATH", type=str)
     parser.add_argument("--output_dir", type=str, default=None)
+    parser.add_argument("--red_line_txt", type=str, default=None)
     parser.add_argument("--frame_rate", type=float, default=0)
     parser.add_argument("--track_point_position", type=str, default="top")
     parser.add_argument("--frames_memory_size", type=int, default=10)
