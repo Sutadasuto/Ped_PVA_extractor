@@ -17,15 +17,316 @@ class ZoneDetector(Detector):
             self.text_file_path = args.VIDEO_PATH.split(".")
             self.text_file_path[-1] = "txt"
             self.text_file_path = ".".join(self.text_file_path)
+        else:
+            self.text_file_path = args.red_line_txt
+
         self.ms, self.bs, self.zones = [], [], []
+        self.m_threshold = 1.0
         self.red_zone_defined = False
         self.mouse_coordinates = self.read_line_from_text(self.text_file_path)
         self.track_point_position = args.track_point_position
         self.n_frames = args.frames_memory_size
 
-    def calculate_red_line(self, mouse_coordinates):
+    def calculate_zone_for_first_lines(self, middle_index, middle_index_x1, middle_index_x2):
+        old_x1 = middle_index_x1
+        old_x2 = middle_index_x2
+        for i in reversed(range(middle_index)):
+            old_dir = np.sign(old_x2 - old_x1)
+            c_x1, c_x2 = [pair[0] for pair in self.mouse_coordinates[i:i+2]]
+            c_dir = np.sign(c_x2 - c_x1)
+            if c_dir == old_dir:
+                if self.zones[i+1] == "up" or self.zones[i+1] == "down":
+                    if abs(self.ms[i]) < self.m_threshold:
+                        self.zones[i] = self.zones[i+1]
+                    else:
+                        shift = -1 * c_dir
+                        test_x = c_x2 + shift
+                        new_line_pos = np.sign(
+                            (self.ms[i] * test_x + self.bs[i]) - (self.ms[i + 1] * test_x + self.bs[i + 1]))
+                        if c_dir == 1:
+                            if self.zones[i + 1] == "up":
+                                if new_line_pos == 1:
+                                    self.zones[i] = "right"
+                                else:
+                                    self.zones[i] = "left"
+                            else:
+                                if new_line_pos == 1:
+                                    self.zones[i] = "left"
+                                else:
+                                    self.zones[i] = "right"
+                        else:
+                            if self.zones[i + 1] == "up":
+                                if new_line_pos == 1:
+                                    self.zones[i] = "left"
+                                else:
+                                    self.zones[i] = "right"
+                            else:
+                                if new_line_pos == 1:
+                                    self.zones[i] = "right"
+                                else:
+                                    self.zones[i] = "left"
+                else:
+                    if abs(self.ms[i]) < self.m_threshold:
+                        shift = c_dir
+                        test_x = c_x2 + shift
+                        new_line_pos = np.sign(
+                            (self.ms[i] * test_x + self.bs[i]) - (self.ms[i + 1] * test_x + self.bs[i + 1]))
+                        if c_dir == 1:
+                            if new_line_pos == 1:
+                                if self.zones[i+1] == "right":
+                                    self.zones[i] = "up"
+                                else:
+                                    self.zones[i] = "down"
+                            else:
+                                if self.zones[i+1] == "right":
+                                    self.zones[i] = "down"
+                                else:
+                                    self.zones[i] = "up"
+                        else:
+                            if new_line_pos == 1:
+                                if self.zones[i+1] == "right":
+                                    self.zones[i] = "down"
+                                else:
+                                    self.zones[i] = "up"
+                            else:
+                                if self.zones[i+1] == "right":
+                                    self.zones[i] = "up"
+                                else:
+                                    self.zones[i] = "down"
+                    else:
+                        if np.sign(self.ms[i+1]) == np.sign(self.ms[i]):
+                            self.zones[i] = self.zones[i+1]
+                        else:
+                            if self.zones[i+1] == "left":
+                                self.zones[i] = "right"
+                            else:
+                                self.zones[i] = "left"
+            else:
+                if self.zones[i+1] == "up" or self.zones[i+1] == "down":
+                    if abs(self.ms[i]) < self.m_threshold:
+                        if self.zones[i+1] == "up":
+                            self.zones[i] = "down"
+                        else:
+                            self.zones[i] = "up"
+                    else:
+                        shift = -1 * c_dir
+                        test_x = c_x2 + shift
+                        new_line_pos = np.sign(
+                            (self.ms[i] * test_x + self.bs[i]) - (self.ms[i + 1] * test_x + self.bs[i + 1]))
+                        if c_dir == 1:
+                            if self.zones[i + 1] == "up":
+                                if new_line_pos == 1:
+                                    self.zones[i] = "left"
+                                else:
+                                    self.zones[i] = "right"
+                            else:
+                                if new_line_pos == 1:
+                                    self.zones[i] = "right"
+                                else:
+                                    self.zones[i] = "left"
+                        else:
+                            if self.zones[i + 1] == "up":
+                                if new_line_pos == 1:
+                                    self.zones[i] = "right"
+                                else:
+                                    self.zones[i] = "left"
+                            else:
+                                if new_line_pos == 1:
+                                    self.zones[i] = "left"
+                                else:
+                                    self.zones[i] = "right"
+                else:
+                    if abs(self.ms[i]) < self.m_threshold:
+                        shift = -1 * c_dir
+                        test_x = c_x2 + shift
+                        new_line_pos = np.sign(
+                            (self.ms[i] * test_x + self.bs[i]) - (self.ms[i + 1] * test_x + self.bs[i + 1]))
+                        if c_dir == 1:
+                            if new_line_pos == 1:
+                                if self.zones[i + 1] == "right":
+                                    self.zones[i] = "up"
+                                else:
+                                    self.zones[i] = "down"
+                            else:
+                                if self.zones[i + 1] == "right":
+                                    self.zones[i] = "down"
+                                else:
+                                    self.zones[i] = "up"
+                        else:
+                            if new_line_pos == 1:
+                                if self.zones[i + 1] == "right":
+                                    self.zones[i] = "down"
+                                else:
+                                    self.zones[i] = "up"
+                            else:
+                                if self.zones[i + 1] == "right":
+                                    self.zones[i] = "up"
+                                else:
+                                    self.zones[i] = "down"
+                    else:
+                        if np.sign(self.ms[i+1]) != np.sign(self.ms[i]):
+                            self.zones[i] = self.zones[i+1]
+                        else:
+                            if self.zones[i+1] == "left":
+                                self.zones[i] = "right"
+                            else:
+                                self.zones[i] = "left"
+            old_x1 = c_x1
+            old_x2 = c_x2
+
+    def calculate_zone_for_last_lines(self, middle_index, middle_index_x1, middle_index_x2):
+        old_x1 = middle_index_x1
+        old_x2 = middle_index_x2
+        for i in range(middle_index+1, len(self.ms)):
+            old_dir = np.sign(old_x2 - old_x1)
+            c_x1, c_x2 = [pair[0] for pair in self.mouse_coordinates[i:i + 2]]
+            c_dir = np.sign(c_x2 - c_x1)
+            if c_dir == old_dir:
+                if self.zones[i - 1] == "up" or self.zones[i - 1] == "down":
+                    if abs(self.ms[i]) < self.m_threshold:
+                        self.zones[i] = self.zones[i-1]
+                    else:
+                        shift = c_dir
+                        test_x = c_x1 + shift
+                        new_line_pos = np.sign(
+                            (self.ms[i] * test_x + self.bs[i]) - (self.ms[i-1] * test_x + self.bs[i-1]))
+                        if c_dir == 1:
+                            if self.zones[i-1] == "up":
+                                if new_line_pos == 1:
+                                    self.zones[i] = "left"
+                                else:
+                                    self.zones[i] = "right"
+                            else:
+                                if new_line_pos == 1:
+                                    self.zones[i] = "right"
+                                else:
+                                    self.zones[i] = "left"
+                        else:
+                            if self.zones[i-1] == "up":
+                                if new_line_pos == 1:
+                                    self.zones[i] = "right"
+                                else:
+                                    self.zones[i] = "left"
+                            else:
+                                if new_line_pos == 1:
+                                    self.zones[i] = "left"
+                                else:
+                                    self.zones[i] = "right"
+                else:
+                    if abs(self.ms[i]) < self.m_threshold:
+                        shift = -1*c_dir
+                        test_x = c_x1 + shift
+                        new_line_pos = np.sign(
+                            (self.ms[i] * test_x + self.bs[i]) - (self.ms[i - 1] * test_x + self.bs[i - 1]))
+                        if c_dir == 1:
+                            if self.zones[i-1] == "right":
+                                if new_line_pos == 1:
+                                    self.zones[i] = "down"
+                                else:
+                                    self.zones[i] = "up"
+                            else:
+                                if new_line_pos == 1:
+                                    self.zones[i] = "up"
+                                else:
+                                    self.zones[i] = "down"
+                        else:
+                            if self.zones[i-1] == "right":
+                                if new_line_pos == 1:
+                                    self.zones[i] = "up"
+                                else:
+                                    self.zones[i] = "down"
+                            else:
+                                if new_line_pos == 1:
+                                    self.zones[i] = "down"
+                                else:
+                                    self.zones[i] = "up"
+                    else:
+                        if np.sign(self.ms[i-1]) == np.sign(self.ms[i]):
+                            self.zones[i] = self.zones[i-1]
+                        else:
+                            if self.zones[i-1] == "right":
+                                self.zones[i] = "left"
+                            else:
+                                self.zones[i] = "right"
+            else:
+                if self.zones[i - 1] == "up" or self.zones[i - 1] == "down":
+                    if abs(self.ms[i]) < self.m_threshold:
+                        if self.zones[i-1] == "up":
+                            self.zones[i] = "down"
+                        else:
+                            self.zones[i] = "up"
+                    else:
+                        shift = c_dir
+                        test_x = c_x1 + shift
+                        new_line_pos = np.sign(
+                            (self.ms[i] * test_x + self.bs[i]) - (self.ms[i - 1] * test_x + self.bs[i - 1]))
+                        if c_dir == 1:
+                            if self.zones[i-1] == "up":
+                                if new_line_pos == 1:
+                                    self.zones[i] = "right"
+                                else:
+                                    self.zones[i] = "left"
+                            else:
+                                if new_line_pos == 1:
+                                    self.zones[i] = "left"
+                                else:
+                                    self.zones[i] = "right"
+                        else:
+                            if self.zones[i-1] == "up":
+                                if new_line_pos == 1:
+                                    self.zones[i] = "left"
+                                else:
+                                    self.zones[i] = "right"
+                            else:
+                                if new_line_pos == 1:
+                                    self.zones[i] = "right"
+                                else:
+                                    self.zones[i] = "left"
+                else:
+                    if abs(self.ms[i]) < self.m_threshold:
+                        shift = c_dir
+                        test_x = c_x1 + shift
+                        new_line_pos = np.sign(
+                            (self.ms[i] * test_x + self.bs[i]) - (self.ms[i - 1] * test_x + self.bs[i - 1]))
+                        if c_dir == 1:
+                            if self.zones[i-1] == "right":
+                                if new_line_pos == 1:
+                                    self.zones[i] = "down"
+                                else:
+                                    self.zones[i] = "up"
+                            else:
+                                if new_line_pos == 1:
+                                    self.zones[i] = "up"
+                                else:
+                                    self.zones[i] = "down"
+                        else:
+                            if self.zones[i-1] == "right":
+                                if new_line_pos == 1:
+                                    self.zones[i] = "up"
+                                else:
+                                    self.zones[i] = "down"
+                            else:
+                                if new_line_pos == 1:
+                                    self.zones[i] = "down"
+                                else:
+                                    self.zones[i] = "up"
+                    else:
+                        if np.sign(self.ms[i-1]) != np.sign(self.ms[i]):
+                            self.zones[i] = self.zones[i-1]
+                        else:
+                            if self.zones[i-1] == "left":
+                                self.zones[i] = "right"
+                            else:
+                                self.zones[i] = "left"
+            old_x1 = c_x1
+            old_x2 = c_x2
+
+    def calculate_red_line(self):
         for start_index in range(len(self.mouse_coordinates) - 2):
-            x1, y1, x2, y2 = [value for pair in mouse_coordinates[start_index:start_index + 2] for value in pair]
+            x1, y1, x2, y2 = [value for pair in self.mouse_coordinates[start_index:start_index + 2] for value in pair]
+            if x1 == x2:
+                x2 += 1
+                self.mouse_coordinates[start_index + 1] = (x2, y2)
             try:
                 self.ms.append((y2 - y1) / (x2 - x1))
             except ZeroDivisionError:
@@ -34,22 +335,25 @@ class ZoneDetector(Detector):
                 self.ms[-1] = 1e-10
             self.bs.append(y1 - self.ms[-1] * x1)
 
-        for start_index in range(len(self.mouse_coordinates) - 2):
-            x1, x2 = [pair[0] for pair in mouse_coordinates[start_index:start_index + 2]]
-            min_x = min([x1, x2])
-            max_x = max([x1, x2])
-            if min_x <= self.mouse_coordinates[-1][0] <= max_x:
-                if self.mouse_coordinates[-1][1] >= self.mouse_coordinates[-1][0] * self.ms[start_index] + self.bs[start_index]:
-                    self.zones.append("up")
-                else:
-                    self.zones.append("down")
-                break
-        self.zones = [self.zones[-1]] * len(self.ms)
+        central_line, old_x1, old_x2 = self.find_first_zone()
+        if central_line == -1:
+            return False
+
+        self.calculate_zone_for_first_lines(central_line, old_x1, old_x2)
+        self.calculate_zone_for_last_lines(central_line, old_x1, old_x2)
+        return True
 
     def define_red_zone(self, source_image):
         if len(self.mouse_coordinates) >= 3:
-            self.calculate_red_line(self.mouse_coordinates)
-            self.red_zone_defined = True
+            self.red_zone_defined = self.calculate_red_line()
+            if type(source_image) == DeviceVideoStream:
+                image, _ = source_image.read()
+            else:
+                image = source_image.copy()
+            image = self.draw_red_zone(image)
+            if not self.red_zone_defined:
+                cv2.imwrite(self.text_file_path.replace("txt", "jpg"), image)
+                raise ValueError("The text file contains either an invalid format or a non-acceptable set of points. Non-acceptable set of points often involve an invalid or ambiguous ROI.")
 
         else:
             cv2.namedWindow("Sample image")
@@ -75,14 +379,19 @@ class ZoneDetector(Detector):
 
                 # if the 'q' key is pressed, break from the loop
                 elif key == ord("q") and len(self.mouse_coordinates) >= 3:
-                    cv2.destroyWindow("Sample image")
-                    self.calculate_red_line(self.mouse_coordinates)
-                    self.red_zone_defined = True
-                    break
+                    self.red_zone_defined = self.calculate_red_line()
+                    if self.red_zone_defined:
+                        cv2.destroyWindow("Sample image")
+                        break
+                    else:
+                        print("Invalid ROI. Try a new click.")
+                        print("Advices:\n*Use a point near a line segment\n*Use a point enclosed by line segments")
+                        self.mouse_coordinates = self.mouse_coordinates[:-1]
 
         self.write_red_line_to_text(self.mouse_coordinates, self.text_file_path)
+        cv2.imwrite(self.text_file_path.replace("txt", "jpg"), image)
 
-    def detect_exits(self, tracked_subjects, currently_red_ids, lost_ids, last_tracked_frames):
+    def find_exits(self, tracked_subjects, currently_red_ids, lost_ids, last_tracked_frames):
 
         for track_id in currently_red_ids:
             if len(np.where(tracked_subjects[:, -1] == track_id)[0]) == 0:
@@ -167,6 +476,175 @@ class ZoneDetector(Detector):
 
         return currently_red_ids, lost_ids
 
+    def detect_exits(self, tracked_subjects, currently_red_ids, lost_ids, last_tracked_frames):
+
+        for track_id in currently_red_ids:
+            if len(np.where(tracked_subjects[:, -1] == track_id)[0]) == 0:
+                currently_red_ids.remove(track_id)
+                lost_ids.append(track_id)
+
+        interest_subjects = [np.where(tracked_subjects[:, -1] == track_id)[0][0] for track_id in currently_red_ids if
+                             len(np.where(tracked_subjects[:, -1] == track_id)[0]) == 1]
+        if len(interest_subjects) == 0:
+            return currently_red_ids, lost_ids
+
+        yellow_indices = []
+        for new_index, index in enumerate(interest_subjects):
+            track_id = tracked_subjects[index, -1]
+            for frame in reversed(range(len(last_tracked_frames))):
+                try:
+                    yellow_indices.append(
+                        [frame, np.where(last_tracked_frames[frame][:, -1] == track_id)[0][0], new_index])
+                    break
+                except IndexError:
+                    pass
+        if len(yellow_indices) == 0:
+            return currently_red_ids, lost_ids
+
+        yellow_indices = np.array(yellow_indices)
+        if self.track_point_position == "bottom":
+            track_points = np.array([[int((subject[0] + subject[2]) / 2), subject[3], subject[-1]] for subject in
+                                     tracked_subjects[interest_subjects, :]])
+        elif self.track_point_position == "top":
+            track_points = np.array([[int((subject[0] + subject[2]) / 2), subject[1], subject[-1]] for subject in
+                                     tracked_subjects[interest_subjects, :]])
+        else:
+            raise ValueError
+        track_points = track_points[yellow_indices[:, -1], :]
+
+        for index_num, index in enumerate(yellow_indices):
+            x2, y2, track_id = track_points[index_num]
+            prev_pos = last_tracked_frames[index[0]][index[1], :]
+            if self.track_point_position == "bottom":
+                x1, y1 = int((prev_pos[0] + prev_pos[2]) / 2), prev_pos[3]
+            elif self.track_point_position == "top":
+                x1, y1 = int((prev_pos[0] + prev_pos[2]) / 2), prev_pos[1]
+            else:
+                raise ValueError
+            vertical_shift = y2 - y1
+            horizontal_shift = x2 - x1
+            if horizontal_shift == 0:
+                suspect_m = 1e10
+            elif vertical_shift == 0:
+                suspect_m = 1e-10
+            else:
+                suspect_m = vertical_shift / horizontal_shift
+            suspect_b = y2 - suspect_m*x2
+
+            for line_number in range(len(self.ms)):
+                m = self.ms[line_number]
+                b = self.bs[line_number]
+                zone = self.zones[line_number]
+                variables = np.array([[-m, 1], [-suspect_m, 1]])  # -m*x + y =
+                biases = np.array([b, suspect_b])  # b
+                try:
+                    intersection = np.linalg.solve(variables, biases)
+                except np.linalg.LinAlgError:
+                    continue
+                min_x = min(self.mouse_coordinates[line_number][0], self.mouse_coordinates[line_number + 1][0])
+                max_x = max(self.mouse_coordinates[line_number][0], self.mouse_coordinates[line_number + 1][0])
+                min_y = min(self.mouse_coordinates[line_number][1], self.mouse_coordinates[line_number + 1][1])
+                max_y = max(self.mouse_coordinates[line_number][1], self.mouse_coordinates[line_number + 1][1])
+                if min_x <= intersection[0] <= max_x and min_y <= intersection[1] <= max_y:
+                    if zone == "up":
+                        if y1 >= m * x1 + b and y2 < m * x2 + b:
+                            currently_red_ids.remove(track_id)
+                            continue
+                    elif zone == "down":
+                        if y1 <= m * x1 + b and y2 > m * x2 + b:
+                            currently_red_ids.remove(track_id)
+                            continue
+                    elif zone == "right":
+                        if x1 >= (y1 - b) / m and x2 < (y2 - b) / m:
+                            currently_red_ids.remove(track_id)
+                            continue
+                    elif zone == "left":
+                        if x1 <= (y1 - b) / m and x2 > (y2 - b) / m:
+                            currently_red_ids.remove(track_id)
+                            continue
+
+        return currently_red_ids, lost_ids
+
+    def detect_inputs(self, tracked_subjects, last_tracked_frames, currently_red_ids, lost_ids):
+        if self.track_point_position == "bottom":
+            track_points = np.array([[int((subject[0] + subject[2]) / 2), subject[3]] for subject in tracked_subjects])
+        elif self.track_point_position == "top":
+            track_points = np.array([[int((subject[0] + subject[2]) / 2), subject[1]] for subject in tracked_subjects])
+        else:
+            raise ValueError
+
+        yellow_indices = []
+        for index, subject in enumerate(tracked_subjects):
+            track_id = subject[-1]
+            if track_id not in currently_red_ids:
+                for frame in reversed(range(len(last_tracked_frames))):
+                    try:
+                        yellow_indices.append(
+                            [frame, np.where(last_tracked_frames[frame][:, -1] == track_id)[0][0], index])
+                        break
+                    except IndexError:
+                        pass
+
+        red_indices = []
+        for index in yellow_indices:
+            x2, y2 = track_points[index[-1]]
+            prev_pos = last_tracked_frames[index[0]][index[1], :]
+            if self.track_point_position == "bottom":
+                x1, y1 = int((prev_pos[0] + prev_pos[2]) / 2), prev_pos[3]
+            elif self.track_point_position == "top":
+                x1, y1 = int((prev_pos[0] + prev_pos[2]) / 2), prev_pos[1]
+            else:
+                raise ValueError
+            vertical_shift = y2-y1
+            horizontal_shift = x2-x1
+            if horizontal_shift == 0:
+                suspect_m = 1e10
+            elif vertical_shift == 0:
+                suspect_m = 1e-10
+            else:
+                suspect_m = vertical_shift/horizontal_shift
+            suspect_b = y2 - suspect_m*x2
+
+            for line_number in range(len(self.ms)):
+                m = self.ms[line_number]
+                b = self.bs[line_number]
+                zone = self.zones[line_number]
+                variables = np.array([[-m, 1], [-suspect_m, 1]])  # -m*x + y =
+                biases = np.array([b, suspect_b]) # b
+                try:
+                    intersection = np.linalg.solve(variables, biases)
+                except np.linalg.LinAlgError:
+                    continue
+                min_x = min(self.mouse_coordinates[line_number][0], self.mouse_coordinates[line_number+1][0])
+                max_x = max(self.mouse_coordinates[line_number][0], self.mouse_coordinates[line_number+1][0])
+                min_y = min(self.mouse_coordinates[line_number][1], self.mouse_coordinates[line_number + 1][1])
+                max_y = max(self.mouse_coordinates[line_number][1], self.mouse_coordinates[line_number + 1][1])
+                if min_x <= intersection[0] <= max_x and min_y <= intersection[1] <= max_y:
+                    if zone == "up":
+                        if y1 <= m*x1 + b and y2 > m*x2 + b:
+                            red_indices.append(index[2])
+                            continue
+                    elif zone == "down":
+                        if y1 >= m*x1 + b and y2 < m*x2 + b:
+                            red_indices.append(index[2])
+                            continue
+                    elif zone == "right":
+                        if x1 <= (y1-b)/m and x2 > (y2-b)/m:
+                            red_indices.append(index[2])
+                            continue
+                    elif zone == "left":
+                        if x1 >= (y1-b)/m and x2 < (y2-b)/m:
+                            red_indices.append(index[2])
+                            continue
+
+        for track_id in lost_ids:
+            location = np.where(tracked_subjects[:, -1] == track_id)[0]
+            if len(location) == 1:
+                red_indices.append(location[0])
+                lost_ids.remove(track_id)
+
+        return red_indices
+
     def draw_red_zone(self, image):
         thickness = int(self.im_height / 100)
         for start_index in range(len(self.mouse_coordinates) - 2):
@@ -175,6 +653,93 @@ class ZoneDetector(Detector):
             image = cv2.line(image, line_p1, line_p2, (0, 0, 255), thickness)
         image = cv2.drawMarker(image, self.mouse_coordinates[-1], (0, 0, 255), cv2.MARKER_CROSS, 4 * thickness, thickness)
         return image
+
+    def find_first_zone(self):
+        self.zones = ["" for i in range(len(self.ms))]
+        central_line = []
+        for start_index in range(len(self.mouse_coordinates) - 2):
+            x1, x2 = [pair[0] for pair in self.mouse_coordinates[start_index:start_index + 2]]
+            min_x = min([x1, x2])
+            max_x = max([x1, x2])
+            if min_x <= self.mouse_coordinates[-1][0] <= max_x and abs(self.ms[start_index]) <= self.m_threshold:
+                if self.mouse_coordinates[-1][1] >= self.mouse_coordinates[-1][0] * self.ms[start_index] + self.bs[
+                    start_index]:
+                    zone = "up"
+                else:
+                    zone = "down"
+                central_line.append((start_index, x1, x2, zone))
+
+        if len(central_line) == 0:
+            for start_index in range(len(self.mouse_coordinates) - 2):
+                x1, y1, x2, y2 = [value for pair in self.mouse_coordinates[start_index:start_index + 2] for value in
+                                  pair]
+                min_x = min([x1, x2])
+                min_y = min([y1, y2])
+                max_y = max([y1, y2])
+                if min_y <= self.mouse_coordinates[-1][1] <= max_y and abs(self.ms[start_index]) > self.m_threshold:
+                    if self.mouse_coordinates[-1][0] < min_x:
+                        zone = "left"
+                    else:
+                        zone = "right"
+                    central_line.append((start_index, x1, x2, zone))
+
+        if len(central_line) == 0:
+            return -1, -1, -1
+        elif len(central_line) == 1:
+            self.zones[central_line[0][0]] = central_line[0][-1]
+            return central_line[0][0], central_line[0][1], central_line[0][2]
+        else:
+            if central_line[0][-1] == "up" or central_line[0][-1] == "down":
+                ys = [self.ms[candidate[0]] * self.mouse_coordinates[-1][0] + self.bs[candidate[0]] for candidate in central_line]
+                min_dis_up = 1e10
+                index_up = -1
+                min_dis_down = 1e10
+                index_down = -1
+                for index, y in enumerate(ys):
+                    dis = self.mouse_coordinates[-1][1] - y
+                    if dis < 0:
+                        if abs(dis) < min_dis_up:
+                            min_dis_up = abs(dis)
+                            index_up = index
+                    else:
+                        if dis < min_dis_down:
+                            min_dis_down = dis
+                            index_down = index
+                if index_up == -1:
+                    self.zones[central_line[index_down][0]] = central_line[index_down][-1]
+                    return central_line[index_down][0], central_line[index_down][1], central_line[index_down][2]
+                elif index_down == -1:
+                    self.zones[central_line[index_up][0]] = central_line[index_up][-1]
+                    return central_line[index_up][0], central_line[index_up][1], central_line[index_up][2]
+                else:
+                    self.zones[central_line[index_up][0]] = central_line[index_up][-1]
+                    return central_line[index_up][0], central_line[index_up][1], central_line[index_up][2]
+            else:
+                xs = [(self.mouse_coordinates[-1][1] - self.bs[candidate[0]])/self.ms[candidate[0]] for candidate in
+                      central_line]
+                min_dis_right = 1e10
+                index_right = -1
+                min_dis_left = 1e10
+                index_left = -1
+                for index, x in enumerate(xs):
+                    dis = self.mouse_coordinates[-1][0] - x
+                    if dis < 0:
+                        if abs(dis) < min_dis_right:
+                            min_dis_right = abs(dis)
+                            index_right = index
+                    else:
+                        if dis < min_dis_left:
+                            min_dis_left = dis
+                            index_left = index
+                if index_right == -1:
+                    self.zones[central_line[index_left][0]] = central_line[index_left][-1]
+                    return central_line[index_left][0], central_line[index_left][1], central_line[index_left][2]
+                elif index_left == -1:
+                    self.zones[central_line[index_right][0]] = central_line[index_right][-1]
+                    return central_line[index_right][0], central_line[index_right][1], central_line[index_right][2]
+                else:
+                    self.zones[central_line[index_right][0]] = central_line[index_right][-1]
+                    return central_line[index_right][0], central_line[index_right][1], central_line[index_right][2]
 
     def find_red_indices(self, tracked_subjects, last_tracked_frames, currently_red_ids, lost_ids):
 
@@ -189,15 +754,27 @@ class ZoneDetector(Detector):
         for line_number in range(len(self.ms)):
             m = self.ms[line_number]
             b = self.bs[line_number]
-            min_x = min(self.mouse_coordinates[line_number][0], self.mouse_coordinates[line_number + 1][0])
-            max_x = max(self.mouse_coordinates[line_number][0], self.mouse_coordinates[line_number + 1][0])
-            above_min = np.where(track_points[:, 0] >= min_x)
-            below_max = np.where(track_points[:, 0] <= max_x)
-            within_range = np.intersect1d(above_min, below_max)
-            if self.zones[line_number] == "up":
-                focused = np.where(track_points[:, 0]*m + b < track_points[:, 1])[0]
+            zone = self.zones[line_number]
+            if zone == "up" or zone == "down":
+                min_x = min(self.mouse_coordinates[line_number][0], self.mouse_coordinates[line_number + 1][0])
+                max_x = max(self.mouse_coordinates[line_number][0], self.mouse_coordinates[line_number + 1][0])
+                above_min = np.where(track_points[:, 0] >= min_x)
+                below_max = np.where(track_points[:, 0] <= max_x)
+                within_range = np.intersect1d(above_min, below_max)
+                if zone == "up":
+                    focused = np.where(track_points[:, 0] * m + b < track_points[:, 1])[0]
+                else:
+                    focused = np.where(track_points[:, 0] * m + b > track_points[:, 1])[0]
             else:
-                focused = np.where(track_points[:, 0]*m + b > track_points[:, 1])[0]
+                min_y = min(self.mouse_coordinates[line_number][1], self.mouse_coordinates[line_number + 1][1])
+                max_y = max(self.mouse_coordinates[line_number][1], self.mouse_coordinates[line_number + 1][1])
+                above_min = np.where(track_points[:, 0] >= min_y)
+                below_max = np.where(track_points[:, 0] <= max_y)
+                within_range = np.intersect1d(above_min, below_max)
+                if zone == "right":
+                    focused = np.where((track_points[:, 1] - b)/m < track_points[:, 0])[0]
+                else:
+                    focused = np.where((track_points[:, 1] - b)/m > track_points[:, 0])[0]
             yellow_indices += np.intersect1d(focused, within_range).tolist()
         yellow_indices = list(set(yellow_indices))
 
@@ -226,15 +803,26 @@ class ZoneDetector(Detector):
                 m = self.ms[line_number]
                 b = self.bs[line_number]
                 zone = self.zones[line_number]
-                min_x = min(self.mouse_coordinates[line_number][0], self.mouse_coordinates[line_number + 1][0])
-                max_x = max(self.mouse_coordinates[line_number][0], self.mouse_coordinates[line_number + 1][0])
-                if min_x <= point_pos[0] <= max_x:
-                    if zone == "up":
-                        if point_pos[1] <= point_pos[0]*m + b:
-                            red_indices.append(index[2])
-                    else:
-                        if point_pos[1] >= point_pos[0]*m + b:
-                            red_indices.append(index[2])
+                if zone == "up" or zone == "down":
+                    min_x = min(self.mouse_coordinates[line_number][0], self.mouse_coordinates[line_number + 1][0])
+                    max_x = max(self.mouse_coordinates[line_number][0], self.mouse_coordinates[line_number + 1][0])
+                    if min_x <= point_pos[0] <= max_x:
+                        if zone == "up":
+                            if point_pos[1] <= point_pos[0]*m + b:
+                                red_indices.append(index[2])
+                        else:
+                            if point_pos[1] >= point_pos[0]*m + b:
+                                red_indices.append(index[2])
+                else:
+                    min_y = min(self.mouse_coordinates[line_number][1], self.mouse_coordinates[line_number + 1][1])
+                    max_y = max(self.mouse_coordinates[line_number][1], self.mouse_coordinates[line_number + 1][1])
+                    if min_y <= point_pos[1] <= max_y:
+                        if zone == "right":
+                            if point_pos[0] <= (point_pos[1] - b)/m:
+                                red_indices.append(index[2])
+                        else:
+                            if point_pos[0] >= (point_pos[1] - b)/m:
+                                red_indices.append(index[2])
         for track_id in lost_ids:
             location = np.where(tracked_subjects[:, -1] == track_id)[0]
             if len(location) == 1:
@@ -357,7 +945,9 @@ class ZoneDetector(Detector):
                                 self.add_subjects(outputs[:, -1], analyzed_points[point][feature])
 
                     outputs[:, -1] -= 1
-                    red_indices = self.find_red_indices(outputs, last_n_tracked_frames, currently_detected,
+                    # red_indices = self.find_red_indices(outputs, last_n_tracked_frames, currently_detected,
+                    #                                     lost_detected)
+                    red_indices = self.detect_inputs(outputs, last_n_tracked_frames, currently_detected,
                                                         lost_detected)
                     currently_detected += outputs[red_indices, -1].tolist()
                     currently_detected = list(set(currently_detected))
@@ -372,7 +962,8 @@ class ZoneDetector(Detector):
                     tr_corners = np.concatenate((br_corners[:, 0][:, None], tl_corners[:, 1][:, None]), axis=1)
                     bl_corners = np.concatenate((tl_corners[:, 0][:, None], br_corners[:, 1][:, None]), axis=1)
 
-                    currently_detected, lost_detected = self.detect_exits(outputs, currently_detected, lost_detected, last_n_tracked_frames)
+                    currently_detected, lost_detected = self.detect_exits(outputs, currently_detected, lost_detected,
+                                                                          last_n_tracked_frames)
                     red_indices = [np.where(outputs[:, -1] == track_id)[0][0] for track_id in currently_detected if
                                    len(np.where(outputs[:, -1] == track_id)[0]) == 1]
                     # mass_centers = mass_centers[red_indices]
