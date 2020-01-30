@@ -59,6 +59,7 @@ Once you select at least 3 points, the window will display the selected line as 
 * a .txt file is generated in the source folder of the video with the same name as the video
 * when analyzing a folder with images, the text file is saved in the folder containing the folder of interest
 * when using an external device, the text file is saved in the project's root using the device number as file name
+
 This text file saves the coordinates of the clicked points, so it is no longer necessary to select points when re-running the program. In the same location and with the same name, a JPG image is saved showing the red line in the image.
 
 You can reset the selected points at any moment by pressing the "r" key. The outputs of this script are the same as the ones obtained with demo_yolo3_deepsort.py, but bounding box color will differ according to whether the person crossed the red line (red bounding box) or not (green bounding box); additionally, two counters are added to the screen: one to count how many people have crossed the line in the desired direction over all the video, and another one to count how many people currently tracked in the scene have crossed the line in the desired direction. Whenever a person crosses back the line, it is not longer counted and their bounding box turns green.
