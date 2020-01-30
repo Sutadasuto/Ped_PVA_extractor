@@ -1,9 +1,9 @@
 # Ped_PVA_extractor
 
-## Pre-requisites
 Repository based on https://github.com/ZQPei/deep_sort_pytorch for tracking pedestrians in videos or image sequences and calculating the instant position, velocity and acceleration on the x and y axes for the four points of the bounding boxes as well as their mass center.
 
-Within anaconda, you can set an environment from the environment.yml provided in this repository. Because of size, the parametes for YOLO and Deepsort are provided from a different source. To downloaded, insisde the project folder you must:
+## Pre-requisites
+Within anaconda, you can set an environment from the environment.yml provided in this repository. Because of size, the parametes for YOLO and Deepsort are provided from a different source. To download them, inside the project folder you must:
 
 1. Download YOLOv3 parameters:
 ```
