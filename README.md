@@ -32,17 +32,17 @@ You can also provide a folder containing folders with numbered senquences of ima
 
 Additional parameters:
 
-*("--output_dir", type=str, default=None) The folder where the resulting text files are saved
-*("--frame_rate", type=float, default=0) The desired frame rate to analyze (and write, if desired) the video (doesn't work for live stream)
-*("--conf_thresh", type=float, default=0.5) YOLO confidence threshold 
-*("--nms_thresh", type=float, default=0.4) YOLO Non-Maximal Suppression threshold
-*("--max_dist", type=float, default=0.2) Deepsort maximum difference distance for assigning existing IDs 
-*("--max_age", type=int, default=70) Deepsort maximum number of frames to store an ID before ignoring it
-*("--ignore_display", type=str, default="False") If ignore is chosen (True), during processing the program won't show the video being processed
-*("--display_width", type=int, default=800)
-*("--display_height", type=int, default=600)
-*("--save_path", type=str, default="demo.avi") The whole path to save the processed video. If None is provided, the resulting video won't be saved
-*("--use_cuda", type=str, default="True")
+* ("--output_dir", type=str, default=None) The folder where the resulting text files are saved
+* ("--frame_rate", type=float, default=0) The desired frame rate to analyze (and write, if desired) the video (doesn't work for live stream)
+* ("--conf_thresh", type=float, default=0.5) YOLO confidence threshold 
+* ("--nms_thresh", type=float, default=0.4) YOLO Non-Maximal Suppression threshold
+* ("--max_dist", type=float, default=0.2) Deepsort maximum difference distance for assigning existing IDs 
+* ("--max_age", type=int, default=70) Deepsort maximum number of frames to store an ID before ignoring it
+* ("--ignore_display", type=str, default="False") If ignore is chosen (True), during processing the program won't show the video being processed
+* ("--display_width", type=int, default=800)
+* ("--display_height", type=int, default=600)
+* ("--save_path", type=str, default="demo.avi") The whole path to save the processed video. If None is provided, the resulting video won't be saved
+* ("--use_cuda", type=str, default="True")
 
 Finally, you can run the tracker to spot subjects that crossed a user-defined line. To run on a single video, run:
 ```
@@ -52,6 +52,6 @@ As with the first demo, you can also provide either a folder with images or a de
 
 Additionally to the extra arguments that can be provided to demo_yolo3_deepsort.py, the following arguments can be used for red_zone_tracker.py:
 
-*("--red_line_txt", type=str, default=None) A path to a text file containing the desired points for the red line. If None, the program will look for it in the default path as explained in the last paragraph
-*("--track_point_position", type=str, default="top") Whether to use the approximate head (top) or feet (bottom) position to decide if a subject has crossed the line
-*("--frames_memory_size", type=int, default=10) How many frames in the past should be looked at to find the previous position of a person found in the current frame; if the person is not found in such frames, it is considered by default that the person didn't cross the line
+* ("--red_line_txt", type=str, default=None) A path to a text file containing the desired points for the red line. If None, the program will look for it in the default path as explained in the last paragraph
+* ("--track_point_position", type=str, default="top") Whether to use the approximate head (top) or feet (bottom) position to decide if a subject has crossed the line
+* ("--frames_memory_size", type=int, default=10) How many frames in the past should be looked at to find the previous position of a person found in the current frame; if the person is not found in such frames, it is considered by default that the person didn't cross the line
