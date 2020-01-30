@@ -14,9 +14,20 @@ class ZoneDetector(Detector):
     def __init__(self, args):
         super().__init__(args)
         if args.red_line_txt is None:
-            self.text_file_path = args.VIDEO_PATH.split(".")
-            self.text_file_path[-1] = "txt"
-            self.text_file_path = ".".join(self.text_file_path)
+            if os.path.isfile(self.args.VIDEO_PATH):
+                self.text_file_path = args.VIDEO_PATH.split(".")
+                self.text_file_path[-1] = "txt"
+                self.text_file_path = ".".join(self.text_file_path)
+            elif os.path.isdir(self.args.VIDEO_PATH):
+                self.text_file_path = args.VIDEO_PATH + ".txt"
+            else:
+                try:
+                    device_id = int(self.args.VIDEO_PATH)
+                except ValueError:
+                    raise ValueError(
+                        "{} is neither a file, a folder nor a device id.".format(
+                            self.args.VIDEO_PATH))
+                self.text_file_path = self.args.VIDEO_PATH + ".txt"
         else:
             self.text_file_path = args.red_line_txt
 
@@ -32,12 +43,12 @@ class ZoneDetector(Detector):
         old_x2 = middle_index_x2
         for i in reversed(range(middle_index)):
             old_dir = np.sign(old_x2 - old_x1)
-            c_x1, c_x2 = [pair[0] for pair in self.mouse_coordinates[i:i+2]]
+            c_x1, c_x2 = [pair[0] for pair in self.mouse_coordinates[i:i + 2]]
             c_dir = np.sign(c_x2 - c_x1)
             if c_dir == old_dir:
-                if self.zones[i+1] == "up" or self.zones[i+1] == "down":
+                if self.zones[i + 1] == "up" or self.zones[i + 1] == "down":
                     if abs(self.ms[i]) < self.m_threshold:
-                        self.zones[i] = self.zones[i+1]
+                        self.zones[i] = self.zones[i + 1]
                     else:
                         shift = -1 * c_dir
                         test_x = c_x2 + shift
@@ -73,38 +84,38 @@ class ZoneDetector(Detector):
                             (self.ms[i] * test_x + self.bs[i]) - (self.ms[i + 1] * test_x + self.bs[i + 1]))
                         if c_dir == 1:
                             if new_line_pos == 1:
-                                if self.zones[i+1] == "right":
+                                if self.zones[i + 1] == "right":
                                     self.zones[i] = "up"
                                 else:
                                     self.zones[i] = "down"
                             else:
-                                if self.zones[i+1] == "right":
+                                if self.zones[i + 1] == "right":
                                     self.zones[i] = "down"
                                 else:
                                     self.zones[i] = "up"
                         else:
                             if new_line_pos == 1:
-                                if self.zones[i+1] == "right":
+                                if self.zones[i + 1] == "right":
                                     self.zones[i] = "down"
                                 else:
                                     self.zones[i] = "up"
                             else:
-                                if self.zones[i+1] == "right":
+                                if self.zones[i + 1] == "right":
                                     self.zones[i] = "up"
                                 else:
                                     self.zones[i] = "down"
                     else:
-                        if np.sign(self.ms[i+1]) == np.sign(self.ms[i]):
-                            self.zones[i] = self.zones[i+1]
+                        if np.sign(self.ms[i + 1]) == np.sign(self.ms[i]):
+                            self.zones[i] = self.zones[i + 1]
                         else:
-                            if self.zones[i+1] == "left":
+                            if self.zones[i + 1] == "left":
                                 self.zones[i] = "right"
                             else:
                                 self.zones[i] = "left"
             else:
-                if self.zones[i+1] == "up" or self.zones[i+1] == "down":
+                if self.zones[i + 1] == "up" or self.zones[i + 1] == "down":
                     if abs(self.ms[i]) < self.m_threshold:
-                        if self.zones[i+1] == "up":
+                        if self.zones[i + 1] == "up":
                             self.zones[i] = "down"
                         else:
                             self.zones[i] = "up"
@@ -164,10 +175,10 @@ class ZoneDetector(Detector):
                                 else:
                                     self.zones[i] = "down"
                     else:
-                        if np.sign(self.ms[i+1]) != np.sign(self.ms[i]):
-                            self.zones[i] = self.zones[i+1]
+                        if np.sign(self.ms[i + 1]) != np.sign(self.ms[i]):
+                            self.zones[i] = self.zones[i + 1]
                         else:
-                            if self.zones[i+1] == "left":
+                            if self.zones[i + 1] == "left":
                                 self.zones[i] = "right"
                             else:
                                 self.zones[i] = "left"
@@ -177,21 +188,21 @@ class ZoneDetector(Detector):
     def calculate_zone_for_last_lines(self, middle_index, middle_index_x1, middle_index_x2):
         old_x1 = middle_index_x1
         old_x2 = middle_index_x2
-        for i in range(middle_index+1, len(self.ms)):
+        for i in range(middle_index + 1, len(self.ms)):
             old_dir = np.sign(old_x2 - old_x1)
             c_x1, c_x2 = [pair[0] for pair in self.mouse_coordinates[i:i + 2]]
             c_dir = np.sign(c_x2 - c_x1)
             if c_dir == old_dir:
                 if self.zones[i - 1] == "up" or self.zones[i - 1] == "down":
                     if abs(self.ms[i]) < self.m_threshold:
-                        self.zones[i] = self.zones[i-1]
+                        self.zones[i] = self.zones[i - 1]
                     else:
                         shift = c_dir
                         test_x = c_x1 + shift
                         new_line_pos = np.sign(
-                            (self.ms[i] * test_x + self.bs[i]) - (self.ms[i-1] * test_x + self.bs[i-1]))
+                            (self.ms[i] * test_x + self.bs[i]) - (self.ms[i - 1] * test_x + self.bs[i - 1]))
                         if c_dir == 1:
-                            if self.zones[i-1] == "up":
+                            if self.zones[i - 1] == "up":
                                 if new_line_pos == 1:
                                     self.zones[i] = "left"
                                 else:
@@ -202,7 +213,7 @@ class ZoneDetector(Detector):
                                 else:
                                     self.zones[i] = "left"
                         else:
-                            if self.zones[i-1] == "up":
+                            if self.zones[i - 1] == "up":
                                 if new_line_pos == 1:
                                     self.zones[i] = "right"
                                 else:
@@ -214,12 +225,12 @@ class ZoneDetector(Detector):
                                     self.zones[i] = "right"
                 else:
                     if abs(self.ms[i]) < self.m_threshold:
-                        shift = -1*c_dir
+                        shift = -1 * c_dir
                         test_x = c_x1 + shift
                         new_line_pos = np.sign(
                             (self.ms[i] * test_x + self.bs[i]) - (self.ms[i - 1] * test_x + self.bs[i - 1]))
                         if c_dir == 1:
-                            if self.zones[i-1] == "right":
+                            if self.zones[i - 1] == "right":
                                 if new_line_pos == 1:
                                     self.zones[i] = "down"
                                 else:
@@ -230,7 +241,7 @@ class ZoneDetector(Detector):
                                 else:
                                     self.zones[i] = "down"
                         else:
-                            if self.zones[i-1] == "right":
+                            if self.zones[i - 1] == "right":
                                 if new_line_pos == 1:
                                     self.zones[i] = "up"
                                 else:
@@ -241,17 +252,17 @@ class ZoneDetector(Detector):
                                 else:
                                     self.zones[i] = "up"
                     else:
-                        if np.sign(self.ms[i-1]) == np.sign(self.ms[i]):
-                            self.zones[i] = self.zones[i-1]
+                        if np.sign(self.ms[i - 1]) == np.sign(self.ms[i]):
+                            self.zones[i] = self.zones[i - 1]
                         else:
-                            if self.zones[i-1] == "right":
+                            if self.zones[i - 1] == "right":
                                 self.zones[i] = "left"
                             else:
                                 self.zones[i] = "right"
             else:
                 if self.zones[i - 1] == "up" or self.zones[i - 1] == "down":
                     if abs(self.ms[i]) < self.m_threshold:
-                        if self.zones[i-1] == "up":
+                        if self.zones[i - 1] == "up":
                             self.zones[i] = "down"
                         else:
                             self.zones[i] = "up"
@@ -261,7 +272,7 @@ class ZoneDetector(Detector):
                         new_line_pos = np.sign(
                             (self.ms[i] * test_x + self.bs[i]) - (self.ms[i - 1] * test_x + self.bs[i - 1]))
                         if c_dir == 1:
-                            if self.zones[i-1] == "up":
+                            if self.zones[i - 1] == "up":
                                 if new_line_pos == 1:
                                     self.zones[i] = "right"
                                 else:
@@ -272,7 +283,7 @@ class ZoneDetector(Detector):
                                 else:
                                     self.zones[i] = "right"
                         else:
-                            if self.zones[i-1] == "up":
+                            if self.zones[i - 1] == "up":
                                 if new_line_pos == 1:
                                     self.zones[i] = "left"
                                 else:
@@ -289,7 +300,7 @@ class ZoneDetector(Detector):
                         new_line_pos = np.sign(
                             (self.ms[i] * test_x + self.bs[i]) - (self.ms[i - 1] * test_x + self.bs[i - 1]))
                         if c_dir == 1:
-                            if self.zones[i-1] == "right":
+                            if self.zones[i - 1] == "right":
                                 if new_line_pos == 1:
                                     self.zones[i] = "down"
                                 else:
@@ -300,7 +311,7 @@ class ZoneDetector(Detector):
                                 else:
                                     self.zones[i] = "down"
                         else:
-                            if self.zones[i-1] == "right":
+                            if self.zones[i - 1] == "right":
                                 if new_line_pos == 1:
                                     self.zones[i] = "up"
                                 else:
@@ -311,10 +322,10 @@ class ZoneDetector(Detector):
                                 else:
                                     self.zones[i] = "up"
                     else:
-                        if np.sign(self.ms[i-1]) != np.sign(self.ms[i]):
-                            self.zones[i] = self.zones[i-1]
+                        if np.sign(self.ms[i - 1]) != np.sign(self.ms[i]):
+                            self.zones[i] = self.zones[i - 1]
                         else:
-                            if self.zones[i-1] == "left":
+                            if self.zones[i - 1] == "left":
                                 self.zones[i] = "right"
                             else:
                                 self.zones[i] = "left"
@@ -353,7 +364,8 @@ class ZoneDetector(Detector):
             image = self.draw_red_zone(image)
             if not self.red_zone_defined:
                 cv2.imwrite(self.text_file_path.replace("txt", "jpg"), image)
-                raise ValueError("The text file contains either an invalid format or a non-acceptable set of points. Non-acceptable set of points often involve an invalid or ambiguous ROI.")
+                raise ValueError(
+                    "The text file contains either an invalid format or a non-acceptable set of points. Non-acceptable set of points often involve an invalid or ambiguous ROI.")
 
         else:
             cv2.namedWindow("Sample image")
@@ -439,9 +451,9 @@ class ZoneDetector(Detector):
             below_max = np.where(track_points[:, 0] <= max_x)
             within_range = np.intersect1d(above_min, below_max)
             if zone == "up":
-                focused = np.where(track_points[:, 0]*m + b >= track_points[:, 1])[0].tolist()
+                focused = np.where(track_points[:, 0] * m + b >= track_points[:, 1])[0].tolist()
             else:
-                focused = np.where(track_points[:, 0]*m + b <= track_points[:, 1])[0].tolist()
+                focused = np.where(track_points[:, 0] * m + b <= track_points[:, 1])[0].tolist()
             green_indices += np.intersect1d(focused, within_range).tolist()
         green_indices = list(set(green_indices))
 
@@ -462,7 +474,7 @@ class ZoneDetector(Detector):
                 max_x = max(self.mouse_coordinates[line_number][0], self.mouse_coordinates[line_number + 1][0])
                 if min_x <= point_pos[0] <= max_x:
                     if zone == "up":
-                        if point_pos[0]*m + b <= point_pos[1]:
+                        if point_pos[0] * m + b <= point_pos[1]:
                             try:
                                 currently_red_ids.remove(track_points[index, -1])
                             except ValueError:
@@ -529,7 +541,7 @@ class ZoneDetector(Detector):
                 suspect_m = 1e-10
             else:
                 suspect_m = vertical_shift / horizontal_shift
-            suspect_b = y2 - suspect_m*x2
+            suspect_b = y2 - suspect_m * x2
 
             for line_number in range(len(self.ms)):
                 m = self.ms[line_number]
@@ -595,45 +607,45 @@ class ZoneDetector(Detector):
                 x1, y1 = int((prev_pos[0] + prev_pos[2]) / 2), prev_pos[1]
             else:
                 raise ValueError
-            vertical_shift = y2-y1
-            horizontal_shift = x2-x1
+            vertical_shift = y2 - y1
+            horizontal_shift = x2 - x1
             if horizontal_shift == 0:
                 suspect_m = 1e10
             elif vertical_shift == 0:
                 suspect_m = 1e-10
             else:
-                suspect_m = vertical_shift/horizontal_shift
-            suspect_b = y2 - suspect_m*x2
+                suspect_m = vertical_shift / horizontal_shift
+            suspect_b = y2 - suspect_m * x2
 
             for line_number in range(len(self.ms)):
                 m = self.ms[line_number]
                 b = self.bs[line_number]
                 zone = self.zones[line_number]
                 variables = np.array([[-m, 1], [-suspect_m, 1]])  # -m*x + y =
-                biases = np.array([b, suspect_b]) # b
+                biases = np.array([b, suspect_b])  # b
                 try:
                     intersection = np.linalg.solve(variables, biases)
                 except np.linalg.LinAlgError:
                     continue
-                min_x = min(self.mouse_coordinates[line_number][0], self.mouse_coordinates[line_number+1][0])
-                max_x = max(self.mouse_coordinates[line_number][0], self.mouse_coordinates[line_number+1][0])
+                min_x = min(self.mouse_coordinates[line_number][0], self.mouse_coordinates[line_number + 1][0])
+                max_x = max(self.mouse_coordinates[line_number][0], self.mouse_coordinates[line_number + 1][0])
                 min_y = min(self.mouse_coordinates[line_number][1], self.mouse_coordinates[line_number + 1][1])
                 max_y = max(self.mouse_coordinates[line_number][1], self.mouse_coordinates[line_number + 1][1])
                 if min_x <= intersection[0] <= max_x and min_y <= intersection[1] <= max_y:
                     if zone == "up":
-                        if y1 <= m*x1 + b and y2 > m*x2 + b:
+                        if y1 <= m * x1 + b and y2 > m * x2 + b:
                             red_indices.append(index[2])
                             continue
                     elif zone == "down":
-                        if y1 >= m*x1 + b and y2 < m*x2 + b:
+                        if y1 >= m * x1 + b and y2 < m * x2 + b:
                             red_indices.append(index[2])
                             continue
                     elif zone == "right":
-                        if x1 <= (y1-b)/m and x2 > (y2-b)/m:
+                        if x1 <= (y1 - b) / m and x2 > (y2 - b) / m:
                             red_indices.append(index[2])
                             continue
                     elif zone == "left":
-                        if x1 >= (y1-b)/m and x2 < (y2-b)/m:
+                        if x1 >= (y1 - b) / m and x2 < (y2 - b) / m:
                             red_indices.append(index[2])
                             continue
 
@@ -651,7 +663,8 @@ class ZoneDetector(Detector):
             line_p1 = self.mouse_coordinates[start_index]
             line_p2 = self.mouse_coordinates[start_index + 1]
             image = cv2.line(image, line_p1, line_p2, (0, 0, 255), thickness)
-        image = cv2.drawMarker(image, self.mouse_coordinates[-1], (0, 0, 255), cv2.MARKER_CROSS, 4 * thickness, thickness)
+        image = cv2.drawMarker(image, self.mouse_coordinates[-1], (0, 0, 255), cv2.MARKER_CROSS, 4 * thickness,
+                               thickness)
         return image
 
     def find_first_zone(self):
@@ -690,7 +703,8 @@ class ZoneDetector(Detector):
             return central_line[0][0], central_line[0][1], central_line[0][2]
         else:
             if central_line[0][-1] == "up" or central_line[0][-1] == "down":
-                ys = [self.ms[candidate[0]] * self.mouse_coordinates[-1][0] + self.bs[candidate[0]] for candidate in central_line]
+                ys = [self.ms[candidate[0]] * self.mouse_coordinates[-1][0] + self.bs[candidate[0]] for candidate in
+                      central_line]
                 min_dis_up = 1e10
                 index_up = -1
                 min_dis_down = 1e10
@@ -715,7 +729,7 @@ class ZoneDetector(Detector):
                     self.zones[central_line[index_up][0]] = central_line[index_up][-1]
                     return central_line[index_up][0], central_line[index_up][1], central_line[index_up][2]
             else:
-                xs = [(self.mouse_coordinates[-1][1] - self.bs[candidate[0]])/self.ms[candidate[0]] for candidate in
+                xs = [(self.mouse_coordinates[-1][1] - self.bs[candidate[0]]) / self.ms[candidate[0]] for candidate in
                       central_line]
                 min_dis_right = 1e10
                 index_right = -1
@@ -772,9 +786,9 @@ class ZoneDetector(Detector):
                 below_max = np.where(track_points[:, 0] <= max_y)
                 within_range = np.intersect1d(above_min, below_max)
                 if zone == "right":
-                    focused = np.where((track_points[:, 1] - b)/m < track_points[:, 0])[0]
+                    focused = np.where((track_points[:, 1] - b) / m < track_points[:, 0])[0]
                 else:
-                    focused = np.where((track_points[:, 1] - b)/m > track_points[:, 0])[0]
+                    focused = np.where((track_points[:, 1] - b) / m > track_points[:, 0])[0]
             yellow_indices += np.intersect1d(focused, within_range).tolist()
         yellow_indices = list(set(yellow_indices))
 
@@ -808,20 +822,20 @@ class ZoneDetector(Detector):
                     max_x = max(self.mouse_coordinates[line_number][0], self.mouse_coordinates[line_number + 1][0])
                     if min_x <= point_pos[0] <= max_x:
                         if zone == "up":
-                            if point_pos[1] <= point_pos[0]*m + b:
+                            if point_pos[1] <= point_pos[0] * m + b:
                                 red_indices.append(index[2])
                         else:
-                            if point_pos[1] >= point_pos[0]*m + b:
+                            if point_pos[1] >= point_pos[0] * m + b:
                                 red_indices.append(index[2])
                 else:
                     min_y = min(self.mouse_coordinates[line_number][1], self.mouse_coordinates[line_number + 1][1])
                     max_y = max(self.mouse_coordinates[line_number][1], self.mouse_coordinates[line_number + 1][1])
                     if min_y <= point_pos[1] <= max_y:
                         if zone == "right":
-                            if point_pos[0] <= (point_pos[1] - b)/m:
+                            if point_pos[0] <= (point_pos[1] - b) / m:
                                 red_indices.append(index[2])
                         else:
-                            if point_pos[0] >= (point_pos[1] - b)/m:
+                            if point_pos[0] >= (point_pos[1] - b) / m:
                                 red_indices.append(index[2])
         for track_id in lost_ids:
             location = np.where(tracked_subjects[:, -1] == track_id)[0]
@@ -948,7 +962,7 @@ class ZoneDetector(Detector):
                     # red_indices = self.find_red_indices(outputs, last_n_tracked_frames, currently_detected,
                     #                                     lost_detected)
                     red_indices = self.detect_inputs(outputs, last_n_tracked_frames, currently_detected,
-                                                        lost_detected)
+                                                     lost_detected)
                     currently_detected += outputs[red_indices, -1].tolist()
                     currently_detected = list(set(currently_detected))
                     all_detected += currently_detected
@@ -1018,7 +1032,9 @@ class ZoneDetector(Detector):
                     self.outputs_dict[i][j].write("%s\n" % frame_strs[i][j])
 
             end = time.time()
-            print("Source fps: {}, frame time: {:.3f}s, processing fps: {:.1f}, processed frames so far: {}".format(round(self.source_fps, 2), end - start, 1 / (end - start), real_frame), end='\r')
+            last_period = end - start
+            print("Source fps: {}, frame time: {:.3f}s, processing fps: {:.1f}, processed frames so far: {}".format(
+                round(self.source_fps, 2), last_period, 1 / last_period, real_frame), end='\r')
 
             if not bool(strtobool(self.args.ignore_display)):
                 cv2.imshow("test", ori_im)
@@ -1028,7 +1044,8 @@ class ZoneDetector(Detector):
                 self.output.write(ori_im)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
-        print("Source fps: {}, frame time: {:.3f}s, processing fps: {:.1f}, processed frames so far: {}".format(round(self.source_fps, 2), end - start, 1 / (end - start), real_frame))
+        print("Source fps: {}, frame time: {:.3f}s, processing fps: {:.1f}, processed frames so far: {}".format(
+            round(self.source_fps, 2), last_period, 1 / last_period, real_frame))
         if self.using_camera:
             self.stream.stop()
         self.close_text_files()

@@ -66,7 +66,7 @@ class Detector(object):
             print(exc_type, exc_value, exc_traceback)
 
     def detect(self):
-        
+
         # Mass centers
         mc = [np.array([], dtype=np.float).reshape(2, 0, 3) for i in range(2)]  # [[[x_t-1,y_t-1,frame_num_t-1]],
         # [[x_t,y_t,frame_num_t]]]. One array for store positions, one for velocities
@@ -154,8 +154,9 @@ class Detector(object):
                     self.outputs_dict[i][j].write("%s\n" % frame_strs[i][j])
 
             end = time.time()
-            print("Source fps: {}, frame time: {:.3f}s, processing fps: {:.1f}, processed frames so far: {}".format(round(self.source_fps, 2), end - start, 1 / (end - start), real_frame))
-
+            last_period = end - start
+            print("Source fps: {}, frame time: {:.3f}s, processing fps: {:.1f}, processed frames so far: {}".format(
+                round(self.source_fps, 2), last_period, 1 / last_period, real_frame), end='\r')
             if not bool(strtobool(self.args.ignore_display)):
                 cv2.imshow("test", ori_im)
                 # cv2.waitKey(1)
@@ -164,6 +165,8 @@ class Detector(object):
                 self.output.write(ori_im)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
+        print("Source fps: {}, frame time: {:.3f}s, processing fps: {:.1f}, processed frames so far: {}".format(
+            round(self.source_fps, 2), last_period, 1 / last_period, real_frame))
         if self.using_camera:
             self.stream.stop()
         self.close_text_files()
@@ -265,7 +268,9 @@ class Detector(object):
                 self.source_fps = self.stream.stream.get(cv2.CAP_PROP_FPS)
                 self.vdo = self.stream.stream
             except ValueError:
-                raise ValueError("{} is neither a valid video file, a folder with valid images or a proper device id.".format(self.args.VIDEO_PATH))
+                raise ValueError(
+                    "{} is neither a valid video file, a folder with valid images nor a proper device id.".format(
+                        self.args.VIDEO_PATH))
 
     def open_text_files(self, analyzed_points_dict):
         self.outputs_dict = {}

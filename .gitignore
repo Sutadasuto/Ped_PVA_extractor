@@ -4,3 +4,4 @@ __pycache*
 /outputs/
 /*.avi
 /.idea/
+/*.txt
