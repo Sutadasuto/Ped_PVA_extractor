@@ -7,7 +7,7 @@ from darknet import Darknet
 from yolo_utils import get_all_boxes, nms, plot_boxes_cv2
 
 
-class YOLOv3(object):
+class Detector(object):
     def __init__(self, cfgfile, weightfile, namesfile, use_cuda=True, is_plot=False, is_xywh=False, conf_thresh=0.3, nms_thresh=0.4):
         # net definition
         self.net = Darknet(cfgfile)
@@ -90,7 +90,7 @@ class YOLOv3(object):
         return img
 
 if __name__ == '__main__':
-    yolo3 = YOLOv3("cfg/yolo_v3.cfg","yolov3.weights","cfg/coco.names", is_plot=True)
+    yolo3 = Detector("cfg/yolo_v3.cfg","yolov3.weights","cfg/coco.names", is_plot=True)
     print("yolo3.size =",yolo3.size)
     import os
     root = "../demo"

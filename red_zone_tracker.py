@@ -4,30 +4,17 @@ import time
 import argparse
 import numpy as np
 from distutils.util import strtobool
-from demo_yolo3_deepsort import Detector
+from demo_yolo3_deepsort import Tracker
 from math import ceil
 from util import DeviceVideoStream, draw_bboxes
 
 
-class ZoneDetector(Detector):
+class ZoneTracker(Tracker):
 
     def __init__(self, args):
         super().__init__(args)
         if args.red_line_txt is None:
-            if os.path.isfile(self.args.VIDEO_PATH):
-                self.text_file_path = args.VIDEO_PATH.split(".")
-                self.text_file_path[-1] = "txt"
-                self.text_file_path = ".".join(self.text_file_path)
-            elif os.path.isdir(self.args.VIDEO_PATH):
-                self.text_file_path = args.VIDEO_PATH + ".txt"
-            else:
-                try:
-                    device_id = int(self.args.VIDEO_PATH)
-                except ValueError:
-                    raise ValueError(
-                        "{} is neither a file, a folder nor a device id.".format(
-                            self.args.VIDEO_PATH))
-                self.text_file_path = self.args.VIDEO_PATH + ".txt"
+            self.create_red_zone_txt()
         else:
             self.text_file_path = args.red_line_txt
 
@@ -353,6 +340,22 @@ class ZoneDetector(Detector):
         self.calculate_zone_for_first_lines(central_line, old_x1, old_x2)
         self.calculate_zone_for_last_lines(central_line, old_x1, old_x2)
         return True
+
+    def create_red_zone_txt(self):
+        if os.path.isfile(self.args.VIDEO_PATH):
+            self.text_file_path = args.VIDEO_PATH.split(".")
+            self.text_file_path[-1] = "txt"
+            self.text_file_path = ".".join(self.text_file_path)
+        elif os.path.isdir(self.args.VIDEO_PATH):
+            self.text_file_path = args.VIDEO_PATH + ".txt"
+        else:
+            try:
+                device_id = int(self.args.VIDEO_PATH)
+            except ValueError:
+                raise ValueError(
+                    "{} is neither a file, a folder nor a device id.".format(
+                        self.args.VIDEO_PATH))
+            self.text_file_path = self.args.VIDEO_PATH + ".txt"
 
     def define_red_zone(self, source_image):
         if len(self.mouse_coordinates) >= 3:
@@ -931,8 +934,10 @@ class ZoneDetector(Detector):
             real_frame += 1
 
             im = cv2.cvtColor(ori_im, cv2.COLOR_BGR2RGB)
-            im = ori_im
-            bbox_xcycwh, cls_conf, cls_ids = self.yolo3(im)
+            if self.masks_exist:
+                bbox_xcycwh, cls_conf, cls_ids, masks = self.detector(im)
+            else:
+                bbox_xcycwh, cls_conf, cls_ids = self.detector(im)
 
             if not self.using_camera:
                 self.frame_index += 1
@@ -943,12 +948,11 @@ class ZoneDetector(Detector):
 
             if bbox_xcycwh is not None:
                 # select class person
-                mask = cls_ids == 0
-
+                mask = cls_ids == self.class_index
                 bbox_xcycwh = bbox_xcycwh[mask]
                 # bbox_xcycwh[:,3:] *= 1.2
-
                 cls_conf = cls_conf[mask]
+
                 outputs = self.deepsort.update(bbox_xcycwh, cls_conf, im)
                 ori_im = self.draw_red_zone(ori_im)
                 if len(outputs) > 0:
@@ -1059,6 +1063,7 @@ def parse_args(args=None):
     parser.add_argument("--frame_rate", type=float, default=0)
     parser.add_argument("--track_point_position", type=str, default="top")
     parser.add_argument("--frames_memory_size", type=int, default=10)
+    parser.add_argument("--detector", type=str, default="yolov3")
     parser.add_argument("--yolo_cfg", type=str, default="YOLOv3/cfg/yolo_v3.cfg")
     parser.add_argument("--yolo_weights", type=str, default="YOLOv3/yolov3.weights")
     parser.add_argument("--yolo_names", type=str, default="YOLOv3/cfg/coco.names")
@@ -1076,7 +1081,7 @@ def parse_args(args=None):
 
 
 def main(args):
-    with ZoneDetector(args) as det:
+    with ZoneTracker(args) as det:
         det.detect_per_zone()
 
 

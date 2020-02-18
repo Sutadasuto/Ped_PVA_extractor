@@ -3,18 +3,25 @@ import cv2
 import time
 import argparse
 import numpy as np
-import re
 from distutils.util import strtobool
 
-from YOLOv3 import YOLOv3
+from Mask_RCNN.Mask_RCNN import Detector as mask_rcnn
+from YOLOv3 import Detector as yolov3
 from deep_sort import DeepSort
 from util import DeviceVideoStream, draw_bboxes
 
 
-class Detector(object):
+class Tracker(object):
     def __init__(self, args):
         self.args = args
         use_cuda = bool(strtobool(self.args.use_cuda))
+        self.detectors_dict = {  # key_string:[detector_class, class_arguments_dict, returns_mask?]
+            "yolov3": [yolov3, {"cfgfile": args.yolo_cfg, "weightfile": args.yolo_weights, "namesfile": args.yolo_names,
+                                "is_xywh": True, "conf_thresh": args.conf_thresh, "nms_thresh": args.nms_thresh,
+                                "use_cuda": use_cuda},
+                       False],
+            "mask_rcnn":[mask_rcnn, {"use_cuda": use_cuda}, True]
+        }
         if not bool(strtobool(args.ignore_display)):
             cv2.namedWindow("test", cv2.WINDOW_NORMAL)
             cv2.resizeWindow("test", args.display_width, args.display_height)
@@ -22,10 +29,15 @@ class Detector(object):
         self.display_height = args.display_height
 
         self.vdo = cv2.VideoCapture()
-        self.yolo3 = YOLOv3(args.yolo_cfg, args.yolo_weights, args.yolo_names, is_xywh=True,
-                            conf_thresh=args.conf_thresh, nms_thresh=args.nms_thresh, use_cuda=use_cuda)
+        try:
+            kwargs = self.detectors_dict[args.detector][1]
+            self.detector = self.detectors_dict[args.detector][0](**kwargs)
+            self.masks_exist = self.detectors_dict[args.detector][2]
+        except KeyError:
+            raise KeyError("Expected detectors are %s." % self.detectors_dict)
+        self.class_index = self.detector.class_names.index("person")
         self.deepsort = DeepSort(args.deepsort_checkpoint, args.max_dist, args.max_age, use_cuda)
-        self.class_names = self.yolo3.class_names
+        self.class_names = self.detector.class_names
         if args.output_dir is None:
             self.output_dir = os.path.join(os.getcwd(), "outputs")
         else:
@@ -102,8 +114,10 @@ class Detector(object):
             real_frame += 1
 
             im = cv2.cvtColor(ori_im, cv2.COLOR_BGR2RGB)
-            im = ori_im
-            bbox_xcycwh, cls_conf, cls_ids = self.yolo3(im)
+            if self.masks_exist:
+                bbox_xcycwh, cls_conf, cls_ids, masks = self.detector(im)
+            else:
+                bbox_xcycwh, cls_conf, cls_ids = self.detector(im)
 
             if not self.using_camera:
                 self.frame_index += 1
@@ -114,12 +128,11 @@ class Detector(object):
 
             if bbox_xcycwh is not None:
                 # select class person
-                mask = cls_ids == 0
-
+                mask = cls_ids == self.class_index
                 bbox_xcycwh = bbox_xcycwh[mask]
                 # bbox_xcycwh[:,3:] *= 1.2
-
                 cls_conf = cls_conf[mask]
+
                 outputs = self.deepsort.update(bbox_xcycwh, cls_conf, im)
                 if len(outputs) > 0:
                     # Expand the memory arrays size if more subjects are tracked
@@ -295,6 +308,7 @@ def parse_args(args=None):
     parser.add_argument("VIDEO_PATH", type=str)
     parser.add_argument("--output_dir", type=str, default=None)
     parser.add_argument("--frame_rate", type=float, default=0)
+    parser.add_argument("--detector", type=str, default="yolov3")
     parser.add_argument("--yolo_cfg", type=str, default="YOLOv3/cfg/yolo_v3.cfg")
     parser.add_argument("--yolo_weights", type=str, default="YOLOv3/yolov3.weights")
     parser.add_argument("--yolo_names", type=str, default="YOLOv3/cfg/coco.names")
@@ -312,7 +326,7 @@ def parse_args(args=None):
 
 
 def main(args):
-    with Detector(args) as det:
+    with Tracker(args) as det:
         det.detect()
 
 
