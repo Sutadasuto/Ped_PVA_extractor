@@ -2,6 +2,12 @@
 
 Repository based on https://github.com/ZQPei/deep_sort_pytorch for tracking pedestrians in videos or image sequences and calculating the instant position, velocity and acceleration on the x and y axes for the four points of the bounding boxes as well as their mass center.
 
+The original implementation consists on two big parts: Multi-Object Detection using YOLOv3 and Multi-Object Tracking using Deep-SORT on the bounding boxes provided by YOLO. Our extension provides:
+* saving the dynamic behavior of pedestrians (X and Y components of P/V/A) on text files
+* converting those features in ready-for-ML numpy arrays (either for a single video or a folder containing a whole database)
+* detecting people crossing an user-defined boundary in a specific direction (can be either a closed or open figure)
+* counting people who have crossed such boundary.
+
 ## Pre-requisites
 Within anaconda, you can set an environment from the environment.yml provided in this repository. Because of size, the parametes for YOLO and Deepsort are provided from a different source. To download them, inside the project folder you must:
 
@@ -11,6 +17,16 @@ cd YOLOv3/
 wget https://pjreddie.com/media/files/yolov3.weights
 cd ..
 ```
+* Note that YOLOv3 is the default Object Detector. In the current repository version, Mask-RCNN using ResNet50 can be used instead of YOLO (when calling Mask-RCNN, the weights will be automatically downloaded by PyTorch), providing not only a bounding box but a mask of the detected pedestrians (masks are currently not being used but they are accesible by users).
+* Ideally, any Object Detector can be used with the current repository, provided that:
+ 1) The Object Detector is a Python class
+ 2) The Class has an attribute called "class_names", which is a list of strings (where each element corresponds to one of all the possible labels that the detector can assign to an object)
+ 3) The Class has a __call__ function that accepts as argument an image (numpy array) and returns (as numpy arrays):
+  * the bounding boxes of all (any class) the detected objects (in the format \[x_center, y_center, width, height])
+  * the confidence(in the range \[0, 1]) of all the classifications
+  * the label of the predicted class (as an integer in the range \[0-#number_of_class_names)) for each detected object
+  * (Optional) The 2D masks of all the detected objects
+ * Such additional Object Detector can be incorporated to the repository by adding it to the dictionary "self.detectors_dict" in the __init__ of the Tracker class in demo_yolo3_deepsort.py (look at the comments and use the incorporation of YOLO and Mask-RCNN as examples)
 
 2. Download deepsort parameters ckpt.t7:
 ```
@@ -31,6 +47,7 @@ Additional parameters:
 
 * ("--output_dir", type=str, default=None) The folder where the resulting text files are saved
 * ("--frame_rate", type=float, default=0) The desired frame rate to analyze (and write, if desired) the video (doesn't work for live stream)
+* ("--detector", type=str, default="yolov3") The Object Detector to use (currently "yolov3" and "mask_rcnn" are available)
 * ("--conf_thresh", type=float, default=0.5) YOLO confidence threshold 
 * ("--nms_thresh", type=float, default=0.4) YOLO Non-Maximal Suppression threshold
 * ("--max_dist", type=float, default=0.2) Deepsort maximum difference distance for assigning existing IDs 
@@ -69,3 +86,6 @@ Additionally to the extra arguments that can be provided to demo_yolo3_deepsort.
 * ("--red_line_txt", type=str, default=None) A path to a text file containing the desired points for the red line. If None, the program will look for it in the default path as explained in the last paragraph
 * ("--track_point_position", type=str, default="top") Whether to use the approximate head (top) or feet (bottom) position to decide if a subject has crossed the line
 * ("--frames_memory_size", type=int, default=10) How many frames in the past should be looked at to find the previous position of a person found in the current frame; if the person is not found in such frames, it is considered by default that the person didn't cross the line
+
+## Stopping the program
+If you kill the program, no text files nor videos will be saved in disk. To properly finish the program (even if there are still frames being processed), it is just enough to press the "q" key while on the window that is showing the frames being processed. The program will save the results processed until the last seen frame.
