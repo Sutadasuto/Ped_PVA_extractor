@@ -19,14 +19,14 @@ cd ..
 ```
 * Note that YOLOv3 is the default Object Detector. In the current repository version, Mask-RCNN using ResNet50 can be used instead of YOLO (when calling Mask-RCNN, the weights will be automatically downloaded by PyTorch), providing not only a bounding box but a mask of the detected pedestrians (masks are currently not being used but they are accesible by users).
 * Ideally, any Object Detector can be used with the current repository, provided that:
- 1) The Object Detector is a Python class
- 2) The Class has an attribute called "class_names", which is a list of strings (where each element corresponds to one of all the possible labels that the detector can assign to an object)
- 3) The Class has a __call__ function that accepts as argument an image (numpy array) and returns (as numpy arrays):
-  * the bounding boxes of all (any class) the detected objects (in the format \[x_center, y_center, width, height])
-  * the confidence(in the range \[0, 1]) of all the classifications
-  * the label of the predicted class (as an integer in the range \[0-#number_of_class_names)) for each detected object
-  * (Optional) The 2D masks of all the detected objects
- * Such additional Object Detector can be incorporated to the repository by adding it to the dictionary "self.detectors_dict" in the __init__ of the Tracker class in demo_yolo3_deepsort.py (look at the comments and use the incorporation of YOLO and Mask-RCNN as examples)
+  1. The Object Detector is a Python class
+  2. The Class has an attribute called "class_names", which is a list of strings (where each element corresponds to one of all the possible labels that the detector can assign to an object)
+  3. The Class has a __call__ function that accepts as argument an image (numpy array) and returns (as numpy arrays):
+    * the bounding boxes of all (any class) the detected objects (in the format \[x_center, y_center, width, height])
+    * the confidence(in the range \[0, 1]) of all the classifications
+    * the label of the predicted class (as an integer in the range \[0-#number_of_class_names)) for each detected object
+    * (Optional) The 2D masks of all the detected objects
+  * Such additional Object Detector can be incorporated to the repository by adding it to the dictionary "self.detectors_dict" in the __init__ of the Tracker class in demo_yolo3_deepsort.py (look at the comments and use the incorporation of YOLO and Mask-RCNN as examples)
 
 2. Download deepsort parameters ckpt.t7:
 ```
