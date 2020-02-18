@@ -148,10 +148,9 @@ def softmin(x):
     return x_exp / x_exp.sum()
 
 
-def text_to_npy(database_text_files_dir):
+def text_to_npy(database_text_files_dir, database_name):
     videos = sorted([os.path.join(database_text_files_dir, f) for f in os.listdir(database_text_files_dir) if
-                     (os.path.isfile(os.path.join(database_text_files_dir, f)) or os.path.isdir(
-                         os.path.join(database_text_files_dir, f))) and not f.startswith('.')
+                     os.path.isdir(os.path.join(database_text_files_dir, f)) and not f.startswith('.')
                      and not f.endswith(('~', 'gt'))], key=lambda f: f.lower())
     num_coordinates = 2
     video_file_arrays = []
@@ -161,8 +160,7 @@ def text_to_npy(database_text_files_dir):
         video_id = os.path.split(video)[-1]
         print("CURRENT VIDEO: %s" % video)
         text_files = sorted([os.path.join(video, f) for f in os.listdir(video) if
-                             (os.path.isfile(os.path.join(video, f)) or os.path.isdir(
-                                 os.path.join(video, f))) and not f.startswith('.') and f.endswith('.txt')
+                             os.path.isfile(os.path.join(video, f)) and not f.startswith('.') and f.endswith('.txt')
                              and not f.endswith('~')], key=lambda f: f.lower())
         num_point_features = len(text_files)
         with open(text_files[0], 'r') as f:
@@ -195,8 +193,8 @@ def text_to_npy(database_text_files_dir):
         total_subjects_count += len(video_subject_ids)
         video_file_arrays.append(video_file_array)
     final_array = np.concatenate(tuple(video_file_arrays), axis=0)
-    np.save(database_text_files_dir, final_array)
-    with open("%s.csv" % database_text_files_dir, 'w') as csv_dict:
+    np.save(os.path.join(database_text_files_dir, database_name), final_array)
+    with open("%s.csv" % os.path.join(database_text_files_dir, database_name), 'w') as csv_dict:
         csv_dict.write(subjects_dict)
 
 
