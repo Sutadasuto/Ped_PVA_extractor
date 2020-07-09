@@ -3,10 +3,12 @@ import cv2
 import time
 import argparse
 import numpy as np
+import re
 from distutils.util import strtobool
 
 from Mask_RCNN.Mask_RCNN import Detector as mask_rcnn
 from YOLOv3 import Detector as yolov3
+from MobileNet_SSD.MobileNet_SSD import Detector as mobile_ssd
 from deep_sort import DeepSort
 from util import DeviceVideoStream, draw_bboxes
 
@@ -20,7 +22,8 @@ class Tracker(object):
                                 "is_xywh": True, "conf_thresh": args.conf_thresh, "nms_thresh": args.nms_thresh,
                                 "use_cuda": use_cuda},
                        False],
-            "mask_rcnn":[mask_rcnn, {"use_cuda": use_cuda}, True]
+            "mask_rcnn":[mask_rcnn, {"use_cuda": use_cuda}, True],
+            "mobile_ssd": [mobile_ssd, {"use_cuda": use_cuda}, False]
         }
         if not bool(strtobool(args.ignore_display)):
             cv2.namedWindow("test", cv2.WINDOW_NORMAL)

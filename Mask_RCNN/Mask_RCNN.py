@@ -42,9 +42,8 @@ class Detector(object):
         """
                 get_prediction
                   parameters:
-                    - img_path - path of the input image
+                    - rgb_img - rgb numpy array image
                   method:
-                    - Image is obtained from the image path
                     - the image is converted to image tensor using PyTorch's Transforms
                     - image is passed through the model to get the predictions
                     - masks, classes and bounding boxes are obtained from the model and soft masks are made binary(0 or 1) on masks
