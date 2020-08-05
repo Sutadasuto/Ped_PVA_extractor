@@ -9,6 +9,7 @@ from distutils.util import strtobool
 from Mask_RCNN.Mask_RCNN import Detector as mask_rcnn
 from YOLOv3 import Detector as yolov3
 from MobileNet_SSD.MobileNet_SSD import Detector as mobile_ssd
+# from Openvino.openvino_detector import Detector as openvino_detector
 from deep_sort import DeepSort
 from util import DeviceVideoStream, draw_bboxes
 
@@ -23,7 +24,8 @@ class Tracker(object):
                                 "use_cuda": use_cuda},
                        False],
             "mask_rcnn":[mask_rcnn, {"use_cuda": use_cuda}, True],
-            "mobile_ssd": [mobile_ssd, {"use_cuda": use_cuda}, False]
+            "mobile_ssd": [mobile_ssd, {"use_cuda": use_cuda}, False]#,
+            # "openvino": [openvino_detector, {"use_movidius": True}, False]
         }
         if not bool(strtobool(args.ignore_display)):
             cv2.namedWindow("test", cv2.WINDOW_NORMAL)
@@ -39,7 +41,7 @@ class Tracker(object):
         except KeyError:
             raise KeyError("Expected detectors are %s." % self.detectors_dict)
         self.class_index = self.detector.class_names.index("person")
-        self.deepsort = DeepSort(args.deepsort_checkpoint, args.max_dist, args.max_age, use_cuda)
+        self.reidentifier = DeepSort(identifier=args.reidentifier, model_path=args.deepsort_checkpoint, max_dist=args.max_dist, max_age=args.max_age, use_cuda=use_cuda)
         self.class_names = self.detector.class_names
         if args.output_dir is None:
             self.output_dir = os.path.join(os.getcwd(), "outputs")
@@ -136,7 +138,7 @@ class Tracker(object):
                 # bbox_xcycwh[:,3:] *= 1.2
                 cls_conf = cls_conf[mask]
 
-                outputs = self.deepsort.update(bbox_xcycwh, cls_conf, im)
+                outputs = self.reidentifier.update(bbox_xcycwh, cls_conf, im)
                 if len(outputs) > 0:
                     # Expand the memory arrays size if more subjects are tracked
                     for point in range(len(analyzed_points)):
@@ -312,6 +314,7 @@ def parse_args(args=None):
     parser.add_argument("--output_dir", type=str, default=None)
     parser.add_argument("--frame_rate", type=float, default=0)
     parser.add_argument("--detector", type=str, default="yolov3")
+    parser.add_argument("--reidentifier", type=str, default="deep_sort")
     parser.add_argument("--yolo_cfg", type=str, default="YOLOv3/cfg/yolo_v3.cfg")
     parser.add_argument("--yolo_weights", type=str, default="YOLOv3/yolov3.weights")
     parser.add_argument("--yolo_names", type=str, default="YOLOv3/cfg/coco.names")

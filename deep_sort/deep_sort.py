@@ -11,7 +11,7 @@ __all__ = ['DeepSort']
 
 
 class DeepSort(object):
-    def __init__(self, model_path, max_dist=0.2, max_age=70, use_cuda=True):
+    def __init__(self, identifier, model_path, max_dist=0.2, max_age=70, use_cuda=True):
         self.min_confidence = 0.3
         self.nms_max_overlap = 1.0
 

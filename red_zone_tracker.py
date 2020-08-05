@@ -953,7 +953,7 @@ class ZoneTracker(Tracker):
                 # bbox_xcycwh[:,3:] *= 1.2
                 cls_conf = cls_conf[mask]
 
-                outputs = self.deepsort.update(bbox_xcycwh, cls_conf, im)
+                outputs = self.reidentifier.update(bbox_xcycwh, cls_conf, im)
                 ori_im = self.draw_red_zone(ori_im)
                 if len(outputs) > 0:
                     # Expand the memory arrays size if more subjects are tracked
@@ -1064,6 +1064,7 @@ def parse_args(args=None):
     parser.add_argument("--track_point_position", type=str, default="top")
     parser.add_argument("--frames_memory_size", type=int, default=10)
     parser.add_argument("--detector", type=str, default="yolov3")
+    parser.add_argument("--reidentifier", type=str, default="deep_sort")
     parser.add_argument("--yolo_cfg", type=str, default="YOLOv3/cfg/yolo_v3.cfg")
     parser.add_argument("--yolo_weights", type=str, default="YOLOv3/yolov3.weights")
     parser.add_argument("--yolo_names", type=str, default="YOLOv3/cfg/coco.names")
