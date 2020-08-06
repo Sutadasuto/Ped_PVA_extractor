@@ -9,7 +9,7 @@ from distutils.util import strtobool
 from Mask_RCNN.Mask_RCNN import Detector as mask_rcnn
 from YOLOv3 import Detector as yolov3
 from MobileNet_SSD.MobileNet_SSD import Detector as mobile_ssd
-# from Openvino.openvino_detector import Detector as openvino_detector
+from Openvino.openvino_detector import Detector as openvino_detector
 from deep_sort import DeepSort
 from util import DeviceVideoStream, draw_bboxes
 
@@ -18,14 +18,25 @@ class Tracker(object):
     def __init__(self, args):
         self.args = args
         use_cuda = bool(strtobool(self.args.use_cuda))
+        use_movidius = bool(strtobool(self.args.use_movidius))
+        if args.detector == "openvino" or args.reidentifier == "openvino":
+            try:
+                from openvino.inference_engine import IECore
+                openvino_core = IECore()
+            except ModuleNotFoundError:
+                print("Warning: Be sure to set up Openvino's Environment Variables before using this branch")
+                openvino_core = None
+        else:
+            openvino_core = None
         self.detectors_dict = {  # key_string:[detector_class, class_arguments_dict, returns_mask?]
             "yolov3": [yolov3, {"cfgfile": args.yolo_cfg, "weightfile": args.yolo_weights, "namesfile": args.yolo_names,
                                 "is_xywh": True, "conf_thresh": args.conf_thresh, "nms_thresh": args.nms_thresh,
                                 "use_cuda": use_cuda},
                        False],
             "mask_rcnn":[mask_rcnn, {"use_cuda": use_cuda}, True],
-            "mobile_ssd": [mobile_ssd, {"use_cuda": use_cuda}, False]#,
-            # "openvino": [openvino_detector, {"use_movidius": True}, False]
+            "mobile_ssd": [mobile_ssd, {"use_cuda": use_cuda}, False],
+            "openvino": [openvino_detector, {"IECore": openvino_core, "conf_thresh": args.conf_thresh,
+                                             "nms_thresh": args.nms_thresh,"use_movidius": use_movidius}, False]
         }
         if not bool(strtobool(args.ignore_display)):
             cv2.namedWindow("test", cv2.WINDOW_NORMAL)
@@ -41,7 +52,10 @@ class Tracker(object):
         except KeyError:
             raise KeyError("Expected detectors are %s." % self.detectors_dict)
         self.class_index = self.detector.class_names.index("person")
-        self.reidentifier = DeepSort(identifier=args.reidentifier, model_path=args.deepsort_checkpoint, max_dist=args.max_dist, max_age=args.max_age, use_cuda=use_cuda)
+        self.reidentifier = DeepSort(identifier=args.reidentifier, model_path=args.deepsort_checkpoint,
+                                     max_dist=args.max_dist, max_age=args.max_age,
+                                     use_cuda=use_cuda, use_movidius=use_movidius,
+                                     IECore=openvino_core)
         self.class_names = self.detector.class_names
         if args.output_dir is None:
             self.output_dir = os.path.join(os.getcwd(), "outputs")
@@ -314,7 +328,7 @@ def parse_args(args=None):
     parser.add_argument("--output_dir", type=str, default=None)
     parser.add_argument("--frame_rate", type=float, default=0)
     parser.add_argument("--detector", type=str, default="yolov3")
-    parser.add_argument("--reidentifier", type=str, default="deep_sort")
+    parser.add_argument("--reidentifier", type=str, default="default")
     parser.add_argument("--yolo_cfg", type=str, default="YOLOv3/cfg/yolo_v3.cfg")
     parser.add_argument("--yolo_weights", type=str, default="YOLOv3/yolov3.weights")
     parser.add_argument("--yolo_names", type=str, default="YOLOv3/cfg/coco.names")
@@ -328,6 +342,7 @@ def parse_args(args=None):
     parser.add_argument("--display_height", type=int, default=600)
     parser.add_argument("--save_path", type=str, default="demo.avi")
     parser.add_argument("--use_cuda", type=str, default="True")
+    parser.add_argument("--use_movidius", type=str, default="False")
     return parser.parse_args(args)
 
 

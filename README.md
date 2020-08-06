@@ -89,3 +89,22 @@ Additionally to the extra arguments that can be provided to demo_yolo3_deepsort.
 
 ## Stopping the program
 If you kill the program, no text files nor videos will be saved in disk. To properly finish the program (even if there are still frames being processed), it is just enough to press the "q" key while on the window that is showing the frames being processed. The program will save the results processed until the last seen frame.
+
+## Openvino support
+This branch adds support for Intel's Openvino development. Current version works either with CPU or MYRIAD. However, additional setup is needed beyond the above mentioned pre-requisites. Particularly, you need to setup Openvino in your machine; you can follow a detailed tutorial (for Ubuntu) here: https://docs.openvinotoolkit.org/2020.4/openvino_docs_install_guides_installing_openvino_linux.html
+
+**FOR FULL COMPATIBILITY** please follow the above mentioned tutorial after activating the conda environment provided in this repository (to allow Conda compatibility without interfering your system's python installation).
+
+A sample using a person detector model and a person reidentification model (from the ones provided by Intel here: https://github.com/openvinotoolkit/open_model_zoo) is included here. To use them, provide "openvino" as --detector and --reidentifier arguments. For example:
+```
+python demo_yolo3_deepsort.py "path/to/video" --detector "openvino" --reidentifier "openvino" 
+```
+(Remember to set Openvino's environment variables before running any script using an Openvino model: https://docs.openvinotoolkit.org/2020.4/openvino_docs_install_guides_installing_openvino_linux.html#set-the-environment-variables)
+
+Additionally, for using **MYRIAD** (Neural Compute Stick), you need to perform an additional setup in order to let your system interact with the USB stick: https://software.intel.com/content/www/us/en/develop/articles/get-started-with-neural-compute-stick.html
+
+Once you system recognizes the MYRIAD device, you can mount the Openvino's models there by using the --use_movidius argument as True. For example:
+```
+python demo_yolo3_deepsort.py "path/to/video" --detector "openvino" --reidentifier "openvino" --use_movidius True
+```
+

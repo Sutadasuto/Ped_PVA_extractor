@@ -1,21 +1,30 @@
 import numpy as np
 
-from .deep.feature_extractor import Extractor
+from .deep.feature_extractor import Extractor as default
 from .sort.nn_matching import NearestNeighborDistanceMetric
 from .sort.preprocessing import non_max_suppression
 from .sort.detection import Detection
 from .sort.tracker import Tracker
+
+from Openvino.openvino_reidentifier import Extractor as openvino
+
+# from Openvino.openvino_reidentifier import Extractor
 
 
 __all__ = ['DeepSort']
 
 
 class DeepSort(object):
-    def __init__(self, identifier, model_path, max_dist=0.2, max_age=70, use_cuda=True):
+    def __init__(self, identifier, model_path, max_dist=0.2, max_age=70, use_cuda=True, use_movidius=False, IECore=None):
         self.min_confidence = 0.3
         self.nms_max_overlap = 1.0
 
-        self.extractor = Extractor(model_path, use_cuda=use_cuda)
+        reidentifiers_dict = {
+            "default": [default, {"model_path": model_path, "use_cuda": use_cuda}],
+            "openvino": [openvino, {"IECore": IECore, "use_movidius": use_movidius}]
+        }
+        kwargs = reidentifiers_dict[identifier][1]
+        self.extractor = reidentifiers_dict[identifier][0](**kwargs)
 
         max_cosine_distance = max_dist
         nn_budget = 100

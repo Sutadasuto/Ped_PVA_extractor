@@ -1064,7 +1064,7 @@ def parse_args(args=None):
     parser.add_argument("--track_point_position", type=str, default="top")
     parser.add_argument("--frames_memory_size", type=int, default=10)
     parser.add_argument("--detector", type=str, default="yolov3")
-    parser.add_argument("--reidentifier", type=str, default="deep_sort")
+    parser.add_argument("--reidentifier", type=str, default="default")
     parser.add_argument("--yolo_cfg", type=str, default="YOLOv3/cfg/yolo_v3.cfg")
     parser.add_argument("--yolo_weights", type=str, default="YOLOv3/yolov3.weights")
     parser.add_argument("--yolo_names", type=str, default="YOLOv3/cfg/coco.names")
@@ -1078,6 +1078,7 @@ def parse_args(args=None):
     parser.add_argument("--display_height", type=int, default=600)
     parser.add_argument("--save_path", type=str, default="demo.avi")
     parser.add_argument("--use_cuda", type=str, default="True")
+    parser.add_argument("--use_movidius", type=str, default="True")
     return parser.parse_args(args)
 
 
