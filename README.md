@@ -93,7 +93,7 @@ If you kill the program, no text files nor videos will be saved in disk. To prop
 ## Openvino support
 This branch adds support for Intel's Openvino development. Current version works either with CPU or MYRIAD. However, additional setup is needed beyond the above mentioned pre-requisites. Particularly, you need to setup Openvino in your machine; you can follow a detailed tutorial (for Ubuntu) here: https://docs.openvinotoolkit.org/2020.4/openvino_docs_install_guides_installing_openvino_linux.html
 
-**FOR FULL COMPATIBILITY** please follow the above mentioned tutorial after activating the conda environment provided in this repository (to allow Conda compatibility without interfering your system's python installation).
+**FOR FULL COMPATIBILITY** please follow the above mentioned tutorial after activating the conda environment provided in this repository (to allow Conda compatibility without interfering your system's python installation). Please notice the **Openvino version** is **2020.4** (previous versions may not work properly).
 
 A sample using a person detector model and a person reidentification model (from the ones provided by Intel here: https://github.com/openvinotoolkit/open_model_zoo) is included here. To use them, provide "openvino" as --detector and --reidentifier arguments. For example:
 ```
